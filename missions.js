@@ -1,0 +1,90 @@
+const missions = [
+  {
+    titre: "Organiser une conférence (Événementiel)",
+    type: "qcm",
+    question:
+      "Quelles étapes sont nécessaires pour organiser une conférence réussie ?",
+    options: [
+      "Contacter un intervenant",
+      "Gérer les autorisations d'amphi",
+      "Prévoir un cocktail",
+      "Envoyer les convocations",
+      "Faire un retour au client",
+    ],
+    bonnesReponses: [0, 1, 2, 3],
+    points: 25,
+    role: "Événementiel",
+  },
+  {
+    titre: "Définir les priorités du mandat (Présidence)",
+    type: "qcm",
+    question: "Quelles sont vos 3 grandes priorités pour ce mandat ?",
+    options: [
+      "Augmenter le CA de 50%",
+      "Organiser un événement régional",
+      "Obtenir un partenaire IR",
+      "Renforcer les process internes",
+      "Changer de logo",
+    ],
+    bonnesReponses: [0, 1, 3],
+    points: 20,
+    role: "Présidence",
+  },
+  {
+    titre: "Prospection commerciale (Développement Commercial)",
+    type: "choix",
+    question: "Quelle stratégie de prospection est la plus efficace ?",
+    options: [
+      "Email + LinkedIn",
+      "Porte-à-porte",
+      "Attente d’un contact entrant",
+    ],
+    bonneReponse: 0,
+    points: 15,
+    role: "Développement Commercial",
+  },
+  {
+    titre: "Gérer le budget d’un congrès (Trésorerie)",
+    type: "qcm",
+    question: "Quels postes budgétaires sont essentiels ?",
+    options: [
+      "Salle (600€)",
+      "Communication (100€)",
+      "Logistique (300€)",
+      "Cadeaux invités (200€)",
+    ],
+    bonnesReponses: [0, 1, 2],
+    points: 30,
+    role: "Trésorerie",
+  },
+  {
+    titre: "Créer la cohésion d'équipe (Communication / RH)",
+    type: "qcm",
+    question:
+      "Quelles actions favorisent la cohésion malgré les stages à l'étranger ?",
+    options: [
+      "Réunions régulières en visio",
+      "Soirée d'intégration avant décembre",
+      "Slack ou Discord pour le lien",
+      "Aucune prise de contact spécifique",
+    ],
+    bonnesReponses: [0, 1, 2],
+    points: 20,
+    role: "Communication / RH",
+  },
+  {
+    titre: "Gérer les partenaires (Partenariats)",
+    type: "qcm",
+    question:
+      "Quelles actions sont nécessaires pour bien gérer les partenaires ?",
+    options: [
+      "Renouveler les conventions",
+      "Prévoir des événements avec eux",
+      "Allouer un budget motivation",
+      "Ne pas les recontacter",
+    ],
+    bonnesReponses: [0, 1, 2],
+    points: 25,
+    role: "Partenariats",
+  },
+];
