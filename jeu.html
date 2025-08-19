@@ -9,7 +9,7 @@
   <body>
     <header class="site-header">
       <!-- Logo -->
-      <img src="JC_AQSE_logo.jpg" alt="Logo JC AQSE" class="logo" />
+      <img src="JC_AQSE_logo.png" alt="Logo JC AQSE" class="logo" />
 
       <!-- Titre -->
       <h1>Jeu Interactif — Junior Conseil AQSE</h1>
@@ -21,20 +21,13 @@
     <main class="container">
       <section id="timeline" class="card">
         <h2>Progression</h2>
-        <div class="steps">
-          <button class="step-btn" onclick="loadStep(0)">Étape 1</button>
-          <button class="step-btn" onclick="loadStep(1)">Étape 2</button>
-          <button class="step-btn" onclick="loadStep(2)">Étape 3</button>
-          <button class="step-btn" onclick="loadStep(3)">Étape 4</button>
-          <button class="step-btn" onclick="loadStep(4)">Étape 5</button>
-          <button class="step-btn" onclick="loadStep(5)">Étape 6</button>
-        </div>
+        <div class="steps" id="steps"></div>
       </section>
 
       <section id="mission-container" class="card">
         <h2>Mission</h2>
         <div id="mission-body" class="mission-body">
-          <p>Choisis une étape dans la timeline pour commencer.</p>
+          <p>Choisis un pôle pour commencer le jeu.</p>
         </div>
         <div
           id="feedback"

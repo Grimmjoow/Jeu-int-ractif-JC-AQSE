@@ -4,13 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Junior Conseil AQSE — Accueil</title>
-    <!-- On réutilise le même fichier de styles -->
     <link rel="stylesheet" href="jeu.css" />
   </head>
   <body>
     <!-- Header identique (mêmes couleurs et style) -->
     <header class="site-header">
-      <img src="JC_AQSE_logo.jpg" alt="Logo JC AQSE" class="logo" />
+      <img src="JC_AQSE_logo.png" alt="Logo JC AQSE" class="logo" />
       <h1>Junior Conseil AQSE</h1>
       <nav style="margin-left: auto">
         <a class="btn secondary" href="jeu.html">🎮 Commencer le jeu</a>
@@ -21,11 +20,12 @@
       <!-- HERO -->
       <section class="card hero">
         <div class="hero-text">
-          <h2>Découvre la Junior-Entreprise de l’AQSE</h2>
+          <!-- Titre mis à jour -->
+          <h2>Viens découvrir ce qu’est Junior Conseil AQSE</h2>
           <p class="muted">
             Notre JE permet aux étudiant·e·s de conduire des missions pour des
             professionnels, tout en développant des compétences concrètes
-            (stratégie, événementiel, communication, business, etc.).
+            (stratégie, événementiel, communication, etc.).
           </p>
           <div class="hero-ctas">
             <a class="btn" href="jeu.html">🎮 Lancer la simulation</a>
@@ -35,56 +35,109 @@
         <div class="hero-side">
           <ul class="stats">
             <li><strong>Mandat</strong><span>Nov → Nov</span></li>
-            <li><strong>CA (N-1)</strong><span>10–20 k€*</span></li>
             <li><strong>Objectif</strong><span>Cohésion & impact</span></li>
           </ul>
-          <p class="footnote">* d’après le dernier exercice mentionné.</p>
         </div>
       </section>
 
-      <!-- PÔLES -->
+      <!-- PÔLES (ordre + contenus mis à jour, pôle Biz/Part retiré) -->
       <section id="poles" class="card">
         <h2>Nos pôles</h2>
         <div class="grid">
-          <article class="pole">
+          <!-- Présidence -->
+          <a
+            class="pole link-card"
+            href="fiches/fiche-presidence.pdf"
+            target="_blank"
+            rel="noopener"
+          >
             <h3 class="role-badge role-pres">Présidence</h3>
-            <p>Vision & stratégie, arbitrage, pilotage de mandat.</p>
-          </article>
-          <article class="pole">
-            <h3 class="role-badge role-treso">Trésorerie</h3>
-            <p>Budget, trésor, gestion des risques et conformité.</p>
-          </article>
-          <article class="pole">
+            <ul class="muted" style="margin: 8px 0 0 16px">
+              <li>Vision & stratégie</li>
+              <li>Arbitrage des décisions importantes</li>
+              <li>Pilotage global du mandat</li>
+              <li>Gestion des relations partenaires</li>
+            </ul>
+          </a>
+
+          <!-- Secrétariat Général -->
+          <a
+            class="pole link-card"
+            href="fiches/fiche-secgen.pdf"
+            target="_blank"
+            rel="noopener"
+          >
             <h3 class="role-badge role-sec">Secrétariat Général</h3>
-            <p>Process, juridique, administratif et qualité.</p>
-          </article>
-          <article class="pole">
+            <ul class="muted" style="margin: 8px 0 0 16px">
+              <li>Gestion des process internes</li>
+              <li>Suivi juridique & administratif</li>
+              <li>Pilotage qualité & conformité documentaire</li>
+              <li>Relation avec les alumnis</li>
+              <li>Veiller à la cohésion d’équipe</li>
+            </ul>
+          </a>
+
+          <!-- Trésorerie -->
+          <a
+            class="pole link-card"
+            href="fiches/fiche-tresorerie.pdf"
+            target="_blank"
+            rel="noopener"
+          >
+            <h3 class="role-badge role-treso">Trésorerie</h3>
+            <ul class="muted" style="margin: 8px 0 0 16px">
+              <li>Élaboration & suivi du budget</li>
+              <li>Gestion de la trésorerie au quotidien</li>
+              <li>Maîtrise des risques & conformité légale/financière</li>
+            </ul>
+          </a>
+
+          <!-- Événementiel -->
+          <a
+            class="pole link-card"
+            href="fiches/fiche-evenementiel.pdf"
+            target="_blank"
+            rel="noopener"
+          >
             <h3 class="role-badge role-event">Événementiel</h3>
-            <p>Conception & logistique (conférences, congrès, campus).</p>
-          </article>
-          <article class="pole">
+            <ul class="muted" style="margin: 8px 0 0 16px">
+              <li>
+                Conception d’événements (conférences, congrès, séminaires,
+                campus)
+              </li>
+              <li>Logistique & organisation sur le terrain</li>
+            </ul>
+          </a>
+
+          <!-- Communication -->
+          <a
+            class="pole link-card"
+            href="fiches/fiche-communication.pdf"
+            target="_blank"
+            rel="noopener"
+          >
             <h3 class="role-badge role-com">Communication</h3>
-            <p>Notoriété, réseaux sociaux, supports et éditorial.</p>
-          </article>
-          <article class="pole">
-            <h3 class="role-badge role-biz">Dév. commercial / Partenariats</h3>
-            <p>Prospection, négociation, relation clients & partenaires.</p>
-          </article>
+            <ul class="muted" style="margin: 8px 0 0 16px">
+              <li>Développement de la notoriété de la JE</li>
+              <li>Animation des réseaux sociaux</li>
+              <li>Création de supports visuels & éditoriaux</li>
+            </ul>
+          </a>
         </div>
       </section>
 
-      <!-- VALEURS -->
+      <!-- VALEURS (libellés mis à jour) -->
       <section class="card">
         <h2>Nos valeurs</h2>
         <div class="grid small">
           <article class="pill">🎯 Professionnalisme</article>
           <article class="pill">🤝 Esprit d’équipe</article>
-          <article class="pill">🚀 Apprentissage par l’action</article>
-          <article class="pill">🌱 Impact & transmission</article>
+          <article class="pill">🛠️ Mise en pratique</article>
+          <article class="pill">📈 Impact & Montée en compétences</article>
         </div>
       </section>
 
-      <!-- CONTACT (exemple simple) -->
+      <!-- CONTACT -->
       <section class="card">
         <h2>Contact</h2>
         <p class="muted">
