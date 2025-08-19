@@ -376,3 +376,19 @@ const missions = [
       "Ex : 1 500 € (co-event campus, dotations concours, activation LinkedIn sponsorisée...)",
   },
 ];
+
+// ---- BONUS : mission starter (ID distinct) ----
+missions.push({
+  id: "partners_renouvellement",
+  role: "Présidence",
+  type: "qcm",
+  titre: "Renouvellement des conventions (bonus)",
+  question: "Quand renouveler et où trouver l’info ?",
+  options: [
+    "Janvier ; Dossier Stratégie et pilotage",
+    "Décembre ; SMQ",
+    "Tous les 3 ans ; RH",
+  ],
+  bonnesReponses: [0],
+  scoring: { xp: 20, cohesion: 0, budget: 0, ca: 0 },
+});

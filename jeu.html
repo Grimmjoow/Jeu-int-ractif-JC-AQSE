@@ -8,7 +8,7 @@
   </head>
   <body>
     <header class="site-header">
-      <img src="JC_AQSE_logo.png" alt="Logo JC AQSE" class="logo" />
+      <img src="JC_AQSE_logo_transparent.png" alt="Logo JC AQSE" class="logo" />
       <h1>Jeu Interactif — Junior Conseil AQSE</h1>
 
       <!-- Indicateurs globaux -->
@@ -19,6 +19,8 @@
         <span class="chip"
           >Cohésion : <strong id="chip-cohesion">0</strong></span
         >
+        <button class="chip" id="btn-export">⬇️ Export CSV</button>
+        <button class="chip" id="btn-send">📤 Envoyer (Netlify)</button>
       </div>
     </header>
 
@@ -51,6 +53,9 @@
           </div>
         </aside>
       </section>
+
+      <!-- Écran de fin (injecté dynamiquement) -->
+      <section id="end-screen" class="card" style="display: none"></section>
     </main>
 
     <!-- Overlay d'affectation des rôles -->
@@ -62,10 +67,7 @@
     >
       <div class="overlay-card">
         <h2>Affecte les rôles avant de commencer</h2>
-        <p class="muted">
-          Entre le prénom attribué à chaque pôle (un seul poste par pôle suffira
-          pour démarrer).
-        </p>
+        <p class="muted">Entre le prénom attribué à chaque pôle.</p>
 
         <form id="roles-form" class="roles-form">
           <label
@@ -123,6 +125,13 @@
         </form>
       </div>
     </div>
+
+    <!-- Form Netlify (hidden) -->
+    <form name="resultat-jeu" data-netlify="true" hidden>
+      <input type="text" name="players" />
+      <input type="text" name="indicateurs" />
+      <input type="text" name="resultats" />
+    </form>
 
     <script src="missions.js"></script>
     <script src="jeu.js"></script>

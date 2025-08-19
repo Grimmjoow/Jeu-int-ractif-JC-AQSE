@@ -1,4 +1,4 @@
-/************  JE — Étape 2 + lock + auto-advance par pôle  ************/
+/************  Étape 2 + Étape 4 (bilan, export, polish)  ************/
 
 const POLES_ORDER = [
   "Présidence",
@@ -20,6 +20,9 @@ let etatDuJeu = {
   seq: { ordre: [], pos: 0 }, // séquence multi‑pôles
 };
 
+// Journal des résultats (pour export)
+const results = []; // {id, role, titre, type, ok, answer, ts}
+
 // Verrouillage : une seule validation par mission
 const missionLocked = new Set();
 function isLocked(idx) {
@@ -37,7 +40,6 @@ function normalize(str = "") {
     .toLowerCase()
     .trim();
 }
-// Affichage “nettoyé” : Partenariats/Dév. → Présidence ; SecGén → Secrétariat
 function displayRole(roleLabel = "") {
   const r = normalize(roleLabel);
   if (!roleLabel) return "Étape";
@@ -94,7 +96,7 @@ function ajouterMemo(label, valeur) {
   el.appendChild(line);
 }
 
-/* ---------- Affectation des rôles (overlay) ---------- */
+/* ---------- Affectation des rôles ---------- */
 function showRolesOverlay(show = true) {
   document.getElementById("roles-overlay").classList.toggle("hidden", !show);
 }
@@ -223,7 +225,7 @@ function renderMission(index) {
       <span class="role-badge ${roleCls}">${role}</span>
       &nbsp;•&nbsp; ${m.points ?? m.scoring?.xp ?? 0} XP
     </div>
-    <p>${m.question}</p>
+    <p>${m.question || ""}</p>
   `;
 
   // Timer UI si défini
@@ -337,7 +339,6 @@ function disableCurrentInputs() {
       "#mission-body input, #mission-body textarea, #mission-body button"
     )
     .forEach((el) => {
-      // on garde seulement les boutons de notre bloc (évite d'autres boutons de nav)
       el.disabled = true;
       el.style.opacity = 0.6;
       el.style.cursor = "not-allowed";
@@ -360,6 +361,10 @@ function advanceToNextInPole(currentIdx) {
       true,
       `✅ Pôle ${pole} terminé. Choisis un autre pôle dans la timeline.`
     );
+    // si tous les pôles terminés → bilan
+    if (missionLocked.size === missions.length) {
+      renderEndScreen();
+    }
   }
 }
 
@@ -371,7 +376,20 @@ function showFeedback(ok, msg) {
   box.textContent = (ok ? "✅ " : "❌ ") + msg;
 }
 
-/* ---------- Validations (+ lock + auto-advance) ---------- */
+/* ---------- Journalisation + validations ---------- */
+function logResult(index, ok, answerText) {
+  const m = missions[index];
+  results.push({
+    id: m.id,
+    role: displayRole(m.role),
+    titre: m.titre,
+    type: m.type,
+    ok: !!ok,
+    answer: (answerText || "").slice(0, 500),
+    ts: new Date().toISOString(),
+  });
+}
+
 function applySuccess(m) {
   if (m.scoring) {
     majIndics(m.scoring);
@@ -393,26 +411,23 @@ function validerQCM(index) {
   if (isLocked(index))
     return showFeedback(false, "Cette mission a déjà été validée.");
   const m = missions[index];
-  const checked = Array.from(
+  const checkedIdx = Array.from(
     document.querySelectorAll('input[name="opt"]:checked')
   ).map((e) => parseInt(e.value, 10));
   const bonnes = m.bonnesReponses || [];
-  ajouterMemo("Sélection", checked.map((i) => m.options[i]).join(", ") || "—");
+  const answerText = checkedIdx.length
+    ? checkedIdx.map((i) => m.options[i]).join(", ")
+    : "—";
+  ajouterMemo("Sélection", answerText);
 
   const ok =
-    bonnes.every((r) => checked.includes(r)) &&
-    checked.length === bonnes.length;
+    bonnes.every((r) => checkedIdx.includes(r)) &&
+    checkedIdx.length === bonnes.length;
 
-  // Verrouillage immédiat
   lockMission(index);
+  logResult(index, ok, answerText);
+  ok ? applySuccess(m) : applyFailure("Mauvaise réponse ou incomplète.");
 
-  if (ok) {
-    applySuccess(m);
-  } else {
-    applyFailure("Mauvaise réponse ou incomplète.");
-  }
-
-  // Passer à la mission suivante du même pôle
   advanceToNextInPole(index);
 }
 
@@ -424,16 +439,13 @@ function validerChoix(index) {
     document.querySelector('input[name="opt"]:checked')?.value ?? "-1",
     10
   );
-  ajouterMemo("Choix", m.options?.[choisi] ?? "—");
+  const answerText = m.options?.[choisi] ?? "—";
+  ajouterMemo("Choix", answerText);
 
-  // Verrouillage immédiat
   lockMission(index);
-
-  if (choisi === m.bonneReponse) {
-    applySuccess(m);
-  } else {
-    applyFailure("Mauvais choix.");
-  }
+  const ok = choisi === m.bonneReponse;
+  logResult(index, ok, answerText);
+  ok ? applySuccess(m) : applyFailure("Mauvais choix.");
 
   advanceToNextInPole(index);
 }
@@ -446,13 +458,9 @@ function validerTexte(index) {
   if (!v) return applyFailure("Réponse vide.");
 
   ajouterMemo("Réponse", v);
-
-  // Verrouillage immédiat
   lockMission(index);
-
-  // Validation auto (si pas MJ)
+  logResult(index, true, v); // auto-validé
   applySuccess(m);
-
   advanceToNextInPole(index);
 }
 
@@ -463,9 +471,8 @@ function validerParMJ(index, accepte) {
   const v = document.getElementById("reponse-texte")?.value.trim() || "";
   if (v) ajouterMemo("Réponse", v);
 
-  // Verrouillage immédiat
   lockMission(index);
-
+  logResult(index, !!accepte, v);
   if (accepte) {
     applySuccess(m);
   } else {
@@ -475,9 +482,166 @@ function validerParMJ(index, accepte) {
   advanceToNextInPole(index);
 }
 
+/* ---------- Bilan / Écran de fin ---------- */
+function renderEndScreen() {
+  const end = document.getElementById("end-screen");
+  if (!end) return;
+  const players = loadPlayers();
+  const total = missions.length;
+  const okCount = results.filter((r) => r.ok).length;
+
+  end.style.display = "block";
+  end.innerHTML = `
+    <h2>🎉 Bilan de mandat</h2>
+    <p><strong>XP :</strong> ${indicateurs.xp} &nbsp; • &nbsp;
+       <strong>CA :</strong> ${indicateurs.ca} &nbsp; • &nbsp;
+       <strong>Budget :</strong> ${indicateurs.budget} &nbsp; • &nbsp;
+       <strong>Cohésion :</strong> ${indicateurs.cohesion}
+    </p>
+    <p><strong>Missions validées :</strong> ${okCount}/${total}</p>
+
+    <div class="card" style="margin-top:8px">
+      <h3>Analyse rapide</h3>
+      <ul>
+        ${
+          indicateurs.cohesion < 10
+            ? "<li>Cohésion perfectible : prévoir plus de rituels d’équipe.</li>"
+            : ""
+        }
+        ${
+          indicateurs.budget < 0
+            ? "<li>Budget dépassé : revoir la priorisation des dépenses.</li>"
+            : ""
+        }
+        ${
+          indicateurs.ca > 0
+            ? "<li>Business activé : continuez l’effort de prospection.</li>"
+            : ""
+        }
+      </ul>
+    </div>
+
+    <div class="hero-ctas" style="margin-top:10px">
+      <button class="btn" onclick="exportCSV()">⬇️ Export CSV</button>
+      <button class="btn secondary" onclick="sendToNetlify()">📤 Envoyer (Netlify)</button>
+      <button class="btn" onclick="resetGame()">🔁 Rejouer</button>
+    </div>
+  `;
+}
+
+/* ---------- Export CSV ---------- */
+function exportCSV() {
+  const players = loadPlayers();
+  const header = [
+    "id",
+    "role",
+    "titre",
+    "type",
+    "ok",
+    "answer",
+    "timestamp",
+    "players",
+    "xp",
+    "ca",
+    "budget",
+    "cohesion",
+  ];
+  const rows = results.map((r) => [
+    r.id,
+    r.role,
+    r.titre,
+    r.type,
+    r.ok ? "1" : "0",
+    r.answer || "",
+    r.ts,
+    JSON.stringify(players),
+    indicateurs.xp,
+    indicateurs.ca,
+    indicateurs.budget,
+    indicateurs.cohesion,
+  ]);
+  const all = [header, ...rows];
+  const csv = all
+    .map((line) =>
+      line.map((x) => `"${String(x).replaceAll('"', '""')}"`).join(",")
+    )
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "resultats_jeu_AQSE.csv";
+  a.click();
+}
+
+/* ---------- Envoi Netlify Forms ---------- */
+async function sendToNetlify() {
+  const players = loadPlayers();
+  const form = document.querySelector('form[name="resultat-jeu"]');
+  if (!form) {
+    alert("Form Netlify introuvable.");
+    return;
+  }
+  form.querySelector('[name="players"]').value = JSON.stringify(players);
+  form.querySelector('[name="indicateurs"]').value =
+    JSON.stringify(indicateurs);
+  form.querySelector('[name="resultats"]').value = JSON.stringify(results);
+
+  // Fallback simple : soumission via fetch (application/x-www-form-urlencoded)
+  const data = {
+    "form-name": "resultat-jeu",
+    players: form.querySelector('[name="players"]').value,
+    indicateurs: form.querySelector('[name="indicateurs"]').value,
+    resultats: form.querySelector('[name="resultats"]').value,
+  };
+  const encoded = Object.keys(data)
+    .map((k) => encodeURIComponent(k) + "=" + encodeURIComponent(data[k]))
+    .join("&");
+
+  try {
+    await fetch("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: encoded,
+    });
+    alert("Résultats envoyés (Netlify).");
+  } catch (e) {
+    console.error(e);
+    alert("Échec de l'envoi Netlify (voir console).");
+  }
+}
+
+/* ---------- Reset ---------- */
+function resetGame() {
+  // on garde les joueurs, mais on reset tout le reste
+  etatDuJeu = {
+    etapesTerminees: [],
+    missionActuelle: null,
+    poleActuel: null,
+    timer: { handle: null, total: 0, left: 0, expired: false },
+    seq: { ordre: [], pos: 0 },
+  };
+  missionLocked.clear();
+  results.length = 0;
+  indicateurs.xp =
+    indicateurs.ca =
+    indicateurs.budget =
+    indicateurs.cohesion =
+      0;
+  renderHeader();
+  renderTimeline();
+  clearMemo();
+  document.getElementById(
+    "mission-body"
+  ).innerHTML = `<p>Choisis un pôle pour commencer le jeu.</p>`;
+  const end = document.getElementById("end-screen");
+  if (end) {
+    end.style.display = "none";
+    end.innerHTML = "";
+  }
+}
+
 /* ---------- Init ---------- */
 window.onload = () => {
-  // Rôles : overlay si pas saisis
   const players = loadPlayers();
   const hasAll = POLES_ORDER.every((p) => (players[p] || "").length > 0);
   showRolesOverlay(!hasAll);
@@ -486,4 +650,8 @@ window.onload = () => {
   renderHeader();
   renderTimeline();
   clearMemo();
+
+  // Raccourcis header
+  document.getElementById("btn-export").onclick = exportCSV;
+  document.getElementById("btn-send").onclick = sendToNetlify;
 };

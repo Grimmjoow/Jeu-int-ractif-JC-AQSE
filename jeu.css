@@ -689,3 +689,10 @@ body {
   font-size: 12px;
   color: var(--muted);
 }
+
+/* Forcer le texte des chips/boutons export & send en blanc */
+.chip,
+#btn-export,
+#btn-send {
+  color: #fff !important;
+}
