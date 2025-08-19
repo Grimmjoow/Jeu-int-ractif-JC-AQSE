@@ -2,41 +2,127 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jeu Junior Conseil AQSE</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Jeu — Junior Conseil AQSE</title>
     <link rel="stylesheet" href="jeu.css" />
   </head>
   <body>
     <header class="site-header">
-      <!-- Logo -->
-      <img src="JC_AQSE_logo.png" alt="Logo JC AQSE" class="logo" />
-
-      <!-- Titre -->
+      <img src="JC_AQSE_logo_transparent.png" alt="Logo JC AQSE" class="logo" />
       <h1>Jeu Interactif — Junior Conseil AQSE</h1>
 
-      <!-- Score -->
-      <div class="score-chip">XP : <span id="score-value">0</span></div>
+      <!-- Indicateurs globaux -->
+      <div class="indics">
+        <span class="chip">XP : <strong id="chip-xp">0</strong></span>
+        <span class="chip">CA : <strong id="chip-ca">0</strong></span>
+        <span class="chip">Budget : <strong id="chip-budget">0</strong></span>
+        <span class="chip"
+          >Cohésion : <strong id="chip-cohesion">0</strong></span
+        >
+      </div>
     </header>
 
     <main class="container">
+      <!-- Timeline par pôles -->
       <section id="timeline" class="card">
         <h2>Progression</h2>
         <div class="steps" id="steps"></div>
       </section>
 
-      <section id="mission-container" class="card">
-        <h2>Mission</h2>
-        <div id="mission-body" class="mission-body">
-          <p>Choisis un pôle pour commencer le jeu.</p>
-        </div>
-        <div
-          id="feedback"
-          class="feedback"
-          role="status"
-          aria-live="polite"
-        ></div>
+      <!-- Grille : Mission à gauche, Mémo à droite -->
+      <section class="grid-2">
+        <section id="mission-container" class="card">
+          <h2>Mission</h2>
+          <div id="mission-body" class="mission-body">
+            <p>Choisis un pôle pour commencer le jeu.</p>
+          </div>
+          <div
+            id="feedback"
+            class="feedback"
+            role="status"
+            aria-live="polite"
+          ></div>
+        </section>
+
+        <aside id="memo" class="card memo">
+          <h2>Mémo (mission en cours)</h2>
+          <div id="memo-body" class="memo-body muted">
+            <p>Aucune note pour le moment.</p>
+          </div>
+        </aside>
       </section>
     </main>
+
+    <!-- Overlay d'affectation des rôles -->
+    <div
+      id="roles-overlay"
+      class="overlay hidden"
+      aria-modal="true"
+      role="dialog"
+    >
+      <div class="overlay-card">
+        <h2>Affecte les rôles avant de commencer</h2>
+        <p class="muted">
+          Entre le prénom attribué à chaque pôle (un seul poste par pôle suffira
+          pour démarrer).
+        </p>
+
+        <form id="roles-form" class="roles-form">
+          <label
+            >Présidence
+            <input
+              type="text"
+              name="Présidence"
+              placeholder="Prénom..."
+              required
+            />
+          </label>
+          <label
+            >Trésorerie
+            <input
+              type="text"
+              name="Trésorerie"
+              placeholder="Prénom..."
+              required
+            />
+          </label>
+          <label
+            >Secrétariat
+            <input
+              type="text"
+              name="Secrétariat"
+              placeholder="Prénom..."
+              required
+            />
+          </label>
+          <label
+            >Événementiel
+            <input
+              type="text"
+              name="Événementiel"
+              placeholder="Prénom..."
+              required
+            />
+          </label>
+          <label
+            >Communication
+            <input
+              type="text"
+              name="Communication"
+              placeholder="Prénom..."
+              required
+            />
+          </label>
+
+          <div class="hero-ctas">
+            <button type="submit" class="btn">Commencer</button>
+            <button type="button" class="btn secondary" id="roles-reset">
+              Réinitialiser
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <script src="missions.js"></script>
     <script src="jeu.js"></script>

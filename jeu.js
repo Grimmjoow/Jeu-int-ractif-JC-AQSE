@@ -1,12 +1,22 @@
-/************  MODE : ACCÈS LIBRE AUX ÉTAPES (par pôle)  ************/
-const MODE_LIBRE = true;
-/*********************************************************/
+/************  ÉTAPE 1 : rôles + indicateurs + mémo  ************/
 
-let score = 0;
+// Ordre fixe des pôles (et boutons de timeline)
+const POLES_ORDER = [
+  "Présidence",
+  "Trésorerie",
+  "Secrétariat",
+  "Événementiel",
+  "Communication",
+];
+
+// Indicateurs globaux
+const indicateurs = { xp: 0, ca: 0, budget: 0, cohesion: 0 };
+
+// État de jeu
 let etatDuJeu = {
-  etapesTerminees: [], // indices de missions terminées
-  missionActuelle: null, // index global dans missions[]
-  poleActuel: null, // libellé de pôle courant (Présidence, etc.)
+  etapesTerminees: [], // indices missions terminées
+  missionActuelle: null, // index mission courante
+  poleActuel: null, // pôle courant
 };
 
 /* ---------- Utils rôles ---------- */
@@ -17,14 +27,12 @@ function normalize(str = "") {
     .toLowerCase()
     .trim();
 }
-
-// Mapping d’affichage : Partenariats/Dév. -> Présidence ; Secrétariat Général -> Secrétariat
+// Affichage “nettoyé” : Partenariats/Dév. -> Présidence ; SecGén -> Secrétariat
 function displayRole(roleLabel = "") {
   const r = normalize(roleLabel);
   if (!roleLabel) return "Étape";
   if (
     r.includes("partenariat") ||
-    r.includes("partenaires") ||
     r.includes("developpement") ||
     r.includes("commercial")
   )
@@ -36,9 +44,8 @@ function displayRole(roleLabel = "") {
   if (r.includes("communication")) return "Communication";
   return roleLabel;
 }
-
 function roleClass(roleLabel) {
-  const role = displayRole(roleLabel); // utiliser le libellé mappé
+  const role = displayRole(roleLabel);
   const r = normalize(role);
   if (r.includes("presidence")) return "role-pres";
   if (r.includes("tresorerie")) return "role-treso";
@@ -48,18 +55,38 @@ function roleClass(roleLabel) {
   return "";
 }
 
-/* ---------- Ordre fixe des pôles demandé ---------- */
-const POLES_ORDER = [
-  "Présidence",
-  "Trésorerie",
-  "Secrétariat",
-  "Événementiel",
-  "Communication",
-];
+/* ---------- Header : mise à jour des chips ---------- */
+function renderHeader() {
+  document.getElementById("chip-xp").textContent = indicateurs.xp;
+  document.getElementById("chip-ca").textContent = indicateurs.ca;
+  document.getElementById("chip-budget").textContent = indicateurs.budget;
+  document.getElementById("chip-cohesion").textContent = indicateurs.cohesion;
+}
+function majIndics(delta) {
+  if (!delta) return;
+  for (const k of Object.keys(indicateurs)) {
+    indicateurs[k] += delta[k] || 0;
+  }
+  renderHeader();
+}
 
-/* ---------- Indexation des missions par pôle ---------- */
+/* ---------- Mémo : garder les infos de la mission en cours ---------- */
+function clearMemo(msg = "Aucune note pour le moment.") {
+  const el = document.getElementById("memo-body");
+  el.innerHTML = `<p class="muted">${msg}</p>`;
+}
+function ajouterMemo(label, valeur) {
+  const el = document.getElementById("memo-body");
+  // si premier ajout, on enlève le placeholder
+  if (el.querySelector("p")) el.innerHTML = "";
+  const line = document.createElement("div");
+  line.className = "memo-line";
+  line.innerHTML = `<strong>${label} :</strong> ${valeur}`;
+  el.appendChild(line);
+}
+
+/* ---------- Index missions par pôle ---------- */
 function buildPoleIndex() {
-  // map: "Présidence" -> [indices de missions ...]
   const map = {};
   POLES_ORDER.forEach((p) => (map[p] = []));
   missions.forEach((m, i) => {
@@ -69,12 +96,11 @@ function buildPoleIndex() {
   return map;
 }
 
-/* ---------- TIMELINE (5 boutons) ---------- */
+/* ---------- Timeline : un bouton par pôle ---------- */
 function renderTimeline() {
   const wrap = document.getElementById("steps");
   if (!wrap) return;
   wrap.innerHTML = "";
-
   POLES_ORDER.forEach((roleName, rank) => {
     const btn = document.createElement("button");
     btn.className = "step-btn " + roleClass(roleName);
@@ -83,16 +109,13 @@ function renderTimeline() {
     btn.onclick = () => loadPole(roleName);
     wrap.appendChild(btn);
   });
-
   setTimelineStates();
 }
-
 function setTimelineStates() {
   const buttons = document.querySelectorAll(".step-btn");
   buttons.forEach((btn) => {
-    btn.disabled = false; // tout cliquable
+    btn.disabled = false;
     btn.classList.remove("locked", "current", "done");
-    // surligner le pôle courant si missionActuelle appartient à ce pôle
     const poleOfCurrent =
       etatDuJeu.missionActuelle != null
         ? displayRole(missions[etatDuJeu.missionActuelle].role)
@@ -101,13 +124,9 @@ function setTimelineStates() {
   });
 }
 
-/* ---------- Barre de progression ---------- */
+/* ---------- Barre progression (reste XP-based pour l’instant) ---------- */
 function updateProgress() {
-  const done = etatDuJeu.etapesTerminees.length;
-  const total = missions.length;
-  const pct = total ? Math.round((done / total) * 100) : 0;
-  const bar = document.getElementById("progress-bar");
-  if (bar) bar.style.width = pct + "%";
+  // on garde la barre actuelle basée sur missions finies si tu en as une (optionnel)
 }
 
 /* ---------- Feedback ---------- */
@@ -118,41 +137,6 @@ function showFeedback(ok, msg) {
   box.textContent = (ok ? "✅ " : "❌ ") + msg;
 }
 
-/* ---------- Sous-nav missions du même pôle ---------- */
-function renderSubnav(poleName, poleIdxs, activeIndex) {
-  if (poleIdxs.length <= 1) return ""; // pas de sous-nav si 1 seule mission
-
-  const currentPos = poleIdxs.indexOf(activeIndex);
-  const hasPrev = currentPos > 0;
-  const hasNext = currentPos < poleIdxs.length - 1;
-
-  return `
-    <div class="hero-ctas" style="margin-top:8px">
-      <button class="btn secondary" ${
-        hasPrev ? "" : "disabled"
-      } onclick="gotoPoleMission('${poleName}', ${
-    currentPos - 1
-  })">⟵ Précédente</button>
-      <span class="muted">Mission ${currentPos + 1} / ${
-    poleIdxs.length
-  } — ${poleName}</span>
-      <button class="btn" ${
-        hasNext ? "" : "disabled"
-      } onclick="gotoPoleMission('${poleName}', ${
-    currentPos + 1
-  })">Suivante ⟶</button>
-    </div>
-  `;
-}
-
-function gotoPoleMission(poleName, pos) {
-  const map = buildPoleIndex();
-  const list = map[poleName] || [];
-  if (pos < 0 || pos >= list.length) return;
-  const idx = list[pos];
-  loadStep(idx, poleName);
-}
-
 /* ---------- Affichage mission ---------- */
 function renderMission(index) {
   const m = missions[index];
@@ -161,21 +145,20 @@ function renderMission(index) {
   const role = displayRole(m.role);
   const roleCls = roleClass(m.role);
 
-  // Construire la sous-nav si plusieurs missions pour ce pôle
-  const map = buildPoleIndex();
-  const subnav = renderSubnav(role, map[role] || [], index);
+  // reset mémo pour la nouvelle mission
+  clearMemo();
 
   let html = `
     <h3 class="mission-title">${m.titre}</h3>
     <div class="mission-meta">
       <span class="role-badge ${roleCls}">${role}</span>
-      &nbsp;•&nbsp; ${m.points} XP
+      &nbsp;•&nbsp; ${m.points ?? 0} XP
     </div>
     <p>${m.question}</p>
   `;
 
   if (m.type === "qcm") {
-    m.options.forEach((opt, i) => {
+    (m.options || []).forEach((opt, i) => {
       html += `
         <label class="option">
           <input type="checkbox" name="opt" value="${i}" />
@@ -185,7 +168,7 @@ function renderMission(index) {
     });
     html += `<div class="actions"><button class="btn" onclick="validerQCM(${index})">Valider</button></div>`;
   } else if (m.type === "choix") {
-    m.options.forEach((opt, i) => {
+    (m.options || []).forEach((opt, i) => {
       html += `
         <label class="option">
           <input type="radio" name="opt" value="${i}" />
@@ -195,10 +178,11 @@ function renderMission(index) {
     });
     html += `<div class="actions"><button class="btn" onclick="validerChoix(${index})">Valider</button></div>`;
   } else {
+    // Placeholder pour futurs types (texte, timer, etc.)
     html += `<div class="end-screen">Mission non interactive implémentée ultérieurement.</div>`;
   }
 
-  body.innerHTML = html + subnav;
+  body.innerHTML = html;
   const fb = document.getElementById("feedback");
   if (fb) fb.textContent = "";
 }
@@ -208,15 +192,14 @@ function loadPole(roleName) {
   const map = buildPoleIndex();
   const list = map[roleName] || [];
   if (list.length === 0) {
-    const body = document.getElementById("mission-body");
-    if (body)
-      body.innerHTML = `<p>Aucune mission définie pour ${roleName}.</p>`;
+    document.getElementById(
+      "mission-body"
+    ).innerHTML = `<p>Aucune mission définie pour ${roleName}.</p>`;
+    clearMemo();
     return;
   }
-  // 1ʳᵉ mission de ce pôle
   loadStep(list[0], roleName);
 }
-
 function loadStep(index, poleName = null) {
   etatDuJeu.missionActuelle = index;
   etatDuJeu.poleActuel = poleName || displayRole(missions[index].role);
@@ -224,7 +207,7 @@ function loadStep(index, poleName = null) {
   renderMission(index);
 }
 
-/* ---------- Validations ---------- */
+/* ---------- Validations classiques (QCM / Choix) ---------- */
 function validerQCM(index) {
   const m = missions[index];
   const checked = Array.from(
@@ -235,61 +218,90 @@ function validerQCM(index) {
     bonnes.every((r) => checked.includes(r)) &&
     checked.length === bonnes.length;
 
+  ajouterMemo("Sélection", checked.map((i) => m.options[i]).join(", ") || "—");
+
   if (estBonne) {
-    score += m.points;
-    document.getElementById("score-value").textContent = score;
+    const pts = m.points ?? 0;
+    majIndics({ xp: pts });
+    showFeedback(true, `Bonne réponse ! +${pts} XP`);
     if (!etatDuJeu.etapesTerminees.includes(index))
       etatDuJeu.etapesTerminees.push(index);
-    setTimelineStates();
-    updateProgress();
-    showFeedback(true, "Bonne réponse !");
-    verifierFin();
   } else {
     showFeedback(false, "Mauvaise réponse ou réponse incomplète.");
   }
 }
-
 function validerChoix(index) {
   const m = missions[index];
   const choisi = parseInt(
     document.querySelector('input[name="opt"]:checked')?.value ?? "-1",
     10
   );
-  const estBonne = choisi === m.bonneReponse;
+  ajouterMemo("Choix", m.options?.[choisi] ?? "—");
 
+  const estBonne = choisi === m.bonneReponse;
   if (estBonne) {
-    score += m.points;
-    document.getElementById("score-value").textContent = score;
+    const pts = m.points ?? 0;
+    majIndics({ xp: pts });
+    showFeedback(true, `Bonne réponse ! +${pts} XP`);
     if (!etatDuJeu.etapesTerminees.includes(index))
       etatDuJeu.etapesTerminees.push(index);
-    setTimelineStates();
-    updateProgress();
-    showFeedback(true, "Bonne réponse !");
-    verifierFin();
   } else {
     showFeedback(false, "Mauvais choix.");
   }
 }
 
-/* ---------- Fin ---------- */
-function verifierFin() {
-  if (etatDuJeu.etapesTerminees.length === missions.length) {
-    const body = document.getElementById("mission-body");
-    if (body) {
-      body.innerHTML = `
-        <div class="end-screen">
-          <h3>🎉 Félicitations !</h3>
-          <p>Vous avez terminé le mandat avec un total de <strong>${score} XP</strong>.</p>
-        </div>
-      `;
-    }
-    const fb = document.getElementById("feedback");
-    if (fb) fb.textContent = "";
+/* ---------- Affectation des rôles (overlay) ---------- */
+function showRolesOverlay(show = true) {
+  document.getElementById("roles-overlay").classList.toggle("hidden", !show);
+}
+function loadPlayers() {
+  try {
+    return JSON.parse(localStorage.getItem("aqse_players") || "{}");
+  } catch (e) {
+    return {};
   }
+}
+function savePlayers(obj) {
+  localStorage.setItem("aqse_players", JSON.stringify(obj || {}));
+}
+function initRolesOverlay() {
+  const players = loadPlayers();
+  const form = document.getElementById("roles-form");
+  const resetBtn = document.getElementById("roles-reset");
+
+  // Pré-remplir si déjà saisi
+  Array.from(form.elements).forEach((el) => {
+    if (el.name && players[el.name]) el.value = players[el.name];
+  });
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const data = {};
+    POLES_ORDER.forEach((p) => {
+      data[p] = form.elements[p]?.value?.trim() || "";
+    });
+    savePlayers(data);
+    showRolesOverlay(false);
+  });
+
+  resetBtn.addEventListener("click", () => {
+    localStorage.removeItem("aqse_players");
+    Array.from(form.elements).forEach((el) => {
+      if (el.tagName === "INPUT") el.value = "";
+    });
+  });
 }
 
 /* ---------- Init ---------- */
 window.onload = () => {
-  renderTimeline(); // 5 boutons : Présidence, Tréso, Secrétariat, Évent, Com
-  updateProgress(); // initialise la barre
+  // Rôles : afficher overlay si pas encore saisi
+  const players = loadPlayers();
+  const hasAll = POLES_ORDER.every((p) => (players[p] || "").length > 0);
+  showRolesOverlay(!hasAll);
+  initRolesOverlay();
+
+  // Header + timeline + écran de départ
+  renderHeader();
+  renderTimeline();
+  clearMemo();
 };
