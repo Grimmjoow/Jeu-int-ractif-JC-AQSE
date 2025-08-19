@@ -70,18 +70,32 @@ body {
   font-weight: 600;
   letter-spacing: 0.2px;
 }
+
+/* -------- Barre de progression (XP %) -------- */
 .progress-wrap {
   flex: 1;
   height: 8px;
   background: #1f2937;
   border-radius: 999px;
   overflow: hidden;
+  position: relative;
 }
 .progress-bar {
   height: 100%;
   background: linear-gradient(90deg, var(--primary), #06b6d4);
   transition: width 0.35s ease;
 }
+.progress-legend,
+#progress-perc {
+  position: absolute;
+  right: 8px;
+  top: -22px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
 .score-chip {
   background: #111827;
   padding: 6px 10px;
@@ -105,6 +119,7 @@ body {
   font-size: 18px;
 }
 
+/* -------- Timeline -------- */
 .steps {
   display: flex;
   flex-wrap: wrap;
@@ -133,7 +148,7 @@ body {
   box-shadow: none;
 }
 
-/* états de la timeline */
+/* états */
 .step-btn.locked {
   opacity: 0.35;
 }
@@ -146,6 +161,7 @@ body {
   border-color: rgba(59, 130, 246, 0.35);
 }
 
+/* -------- Mission -------- */
 .mission-body {
   display: grid;
   gap: 10px;
@@ -208,21 +224,22 @@ body {
   color: white;
   padding: 10px 14px;
   border-radius: 12px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
   transition: 0.2s;
 }
 .btn:hover {
-  filter: brightness(1.1);
+  filter: brightness(1.08);
   transform: translateY(-1px);
 }
 .btn.secondary {
   background: #1f2937;
 }
+
 .feedback {
   min-height: 28px;
   margin-top: 8px;
-  font-weight: 700;
+  font-weight: 800;
 }
 .feedback.ok {
   color: var(--good);
@@ -335,7 +352,7 @@ body {
   transition: 0.15s;
 }
 
-/* ---------- Couleurs des boutons timeline par rôle (mêmes codes que l’index) ---------- */
+/* ---------- Couleurs des boutons timeline par rôle ---------- */
 .step-btn.role-pres {
   border-color: color-mix(in oklab, var(--role-pres) 50%, #000);
   color: var(--role-pres);
@@ -616,12 +633,99 @@ body {
   border-radius: 16px;
   padding: 16px;
 }
+
+/* ===== Formulaire multi-personnes par poste ===== */
 .roles-form {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 8px;
 }
+.roles-form .role-block {
+  display: grid;
+  gap: 8px;
+  background: #0b1220;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 12px;
+}
+.role-block header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 800;
+}
+.role-block .add-btn {
+  appearance: none;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+}
+.role-block .add-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.person-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.name-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0b1220;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+}
+.name-chip .remove {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--bad);
+  font-weight: 900;
+  cursor: pointer;
+  line-height: 1;
+}
+.name-input-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.name-input-row input {
+  flex: 1;
+  background: #0b1220;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 10px 12px;
+  outline: none;
+}
+.name-input-row .ok {
+  appearance: none;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.name-input-row .ok:hover {
+  filter: brightness(1.08);
+}
+
+/* Input générique */
 .roles-form label {
   display: grid;
   gap: 6px;
@@ -635,6 +739,7 @@ body {
   padding: 10px 12px;
   outline: none;
 }
+
 @media (max-width: 860px) {
   .grid-2 {
     grid-template-columns: 1fr;
@@ -690,9 +795,14 @@ body {
   color: var(--muted);
 }
 
-/* Forcer le texte des chips/boutons export & send en blanc */
+/* Forcer le texte des chips/boutons export & send en blanc (si jamais réutilisés) */
 .chip,
 #btn-export,
 #btn-send {
   color: #fff !important;
+}
+
+/* Bouton rejouer */
+.btn-reset {
+  margin-left: 8px;
 }
