@@ -643,3 +643,49 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Étape 2 : inputs & timer ---- */
+.input,
+.textarea {
+  width: 100%;
+  background: #0b1220;
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 10px 12px;
+  outline: none;
+}
+.textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.timer-wrap {
+  margin: 8px 0 0;
+  background: #1f2937;
+  border-radius: 999px;
+  overflow: hidden;
+  height: 10px;
+}
+.timer-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, var(--primary), #06b6d4);
+  transition: width 0.5s linear;
+}
+.timer-legend {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.mj-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.mj-badge {
+  font-size: 12px;
+  color: var(--muted);
+}
