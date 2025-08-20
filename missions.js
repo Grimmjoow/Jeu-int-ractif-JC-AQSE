@@ -97,12 +97,41 @@ const missions = [
   {
     id: "jeu4",
     role: "Jeu",
-    type: "qcm",
-    titre: "Jeu 4",
-    question: "Sélectionne la (seule) bonne réponse.",
-    options: ["Proposition X", "Proposition Y", "Proposition Z"],
-    bonnesReponses: [2], // Z
-    scoring: { xp: 25 },
-    timerSec: 60,
+    type: "jeu4",
+    titre: "Jeu 4 – Partenariats & Prospection",
+    question:
+      "Identifiez/renouvelez les partenaires, ciblez des secteurs et organisez le budget et les actions.",
+    // Données utiles au jeu (listes/options)
+    data: {
+      // Partenaires actuels connus (à multi-sélection dans l'étape 2)
+      partenairesActuels: ["Préfas Incendie", "BNP Paribas", "PROPULSE", "JPM"],
+      // Entreprise en période d’essai 1 an
+      partenaireEssai: "PWC",
+      // Où trouver l’info / quand renouveler
+      renouvellement: {
+        bonnePeriode: "Janvier",
+        bonDossier: "Stratégie et pilotage",
+        durees: ["1 an", "2 ans", "3 ans", "5 ans"], // items d’options
+        bonneDurees: ["1 an", "2 ans"], // certaines conventions durent 2 ans
+      },
+      // Secteurs/cibles pertinents (multi QCM)
+      secteursPertinents: [
+        "PME",
+        "Industries",
+        "ETI",
+        "Startups",
+        "Collectivités",
+        "Ecoles/Universités",
+      ],
+      // Pôles pour le budget
+      roles: [
+        "Présidence",
+        "Trésorerie",
+        "Secrétariat",
+        "Événementiel",
+        "Communication",
+      ],
+    },
+    scoring: { xp: 30 },
   },
 ];

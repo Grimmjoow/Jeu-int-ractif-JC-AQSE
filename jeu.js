@@ -1604,3 +1604,558 @@ function validerJeu3Step4(index) {
   applySuccess(m);
   showFeedback(true, "Jeu 3 validé 🎉");
 }
+
+/* =========================================================
+   JEU 4 — Partenariats & Prospection (7 étapes)
+   Étape 1 : Réponses libres (brainstorm partenaires cibles) – validation MJ
+   Étape 2 : QCM multi — reconnaître les partenaires actuels
+   Étape 3 : QCM (2 sous-questions)
+             3a) Entreprise en période d’essai d’1 an
+             3b) Renouvellement : quand + où est l’info + durées possibles
+   Étape 4 : Brainstorm — types d’entreprises/partenaires à prospecter (validation MJ)
+   Étape 5 : QCM multi — secteurs/cibles pertinents
+   Étape 6 : Budget partenaires par pôle + justification (auto)
+   Étape 7 : Réponse libre — exemples d’entreprises à aller chercher + pourquoi (validation MJ)
+========================================================= */
+
+function getJeu4State(index) {
+  if (!etatDuJeu._jeu4) etatDuJeu._jeu4 = {};
+  if (!etatDuJeu._jeu4[index]) {
+    etatDuJeu._jeu4[index] = {
+      step: 1,
+      // 1) Brainstorm libre (validé MJ)
+      step1: { ideas: [] },
+      // 2) QCM multi : partenaires existants
+      step2: { checked: [] },
+      // 3) QCM : essai + renouvellement
+      step3: { essaiChoix: null, periode: null, dossier: null, durees: [] },
+      // 4) Brainstorm types d’entreprises (validé MJ)
+      step4: { ideas: [] },
+      // 5) QCM multi secteurs
+      step5: { checked: [] },
+      // 6) Budget & justification
+      step6: { budgets: {}, why: "" },
+      // 7) Réponse libre exemples + pourquoi (validé MJ)
+      step7: { texte: "" },
+    };
+  }
+  return etatDuJeu._jeu4[index];
+}
+
+function renderJeu4(index) {
+  const m = missions[index];
+  const D = m.data || {};
+  const S = getJeu4State(index);
+  const body = document.getElementById("mission-body");
+  if (!body) return;
+
+  let html = `
+    <h3 class="mission-title">${m.titre}</h3>
+    <div class="mission-meta">
+      <span class="role-badge">Jeu 4</span>
+      ${m.scoring?.xp ? `&nbsp;•&nbsp; ${m.scoring.xp} XP` : ""}
+    </div>
+    <p>${m.question || ""}</p>
+    <div class="muted">Étape ${S.step} / 7</div>
+  `;
+
+  if (S.step === 1) html += j4_renderStep1();
+  else if (S.step === 2) html += j4_renderStep2(D);
+  else if (S.step === 3) html += j4_renderStep3(D);
+  else if (S.step === 4) html += j4_renderStep4();
+  else if (S.step === 5) html += j4_renderStep5(D);
+  else if (S.step === 6) html += j4_renderStep6(D);
+  else if (S.step === 7) html += j4_renderStep7();
+
+  body.innerHTML = html;
+
+  if (isLocked(index)) {
+    disableCurrentInputs();
+    ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
+    return;
+  }
+
+  if (S.step === 1) j4_hookStep1(index);
+  else if (S.step === 2) j4_hookStep2(index, D);
+  else if (S.step === 3) j4_hookStep3(index, D);
+  else if (S.step === 4) j4_hookStep4(index);
+  else if (S.step === 5) j4_hookStep5(index, D);
+  else if (S.step === 6) j4_hookStep6(index, D);
+  else if (S.step === 7) j4_hookStep7(index);
+}
+
+/* ---------------- Étape 1 : Brainstorm (MJ) ---------------- */
+function j4_renderStep1() {
+  return `
+    <div class="card">
+      <h4>Étape 1 — Brainstorm : partenaires à cibler</h4>
+      <div class="mj-badge">Ajoutez des idées (min 3), puis validation par le MJ.</div>
+      <div style="display:flex; gap:8px; margin:8px 0;">
+        <input id="j4-s1-inp" class="input" placeholder="Ex : cabinet audit régional, ESN locale, industriel…"/>
+        <button class="btn" id="j4-s1-add">Ajouter</button>
+      </div>
+      <div id="j4-s1-list" class="memo-body" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+      <div class="mj-actions" style="margin-top:8px;">
+        <span class="mj-badge">Validation : Maître du jeu</span>
+        <button class="btn" id="j4-s1-accept" disabled>✅ Valider (MJ)</button>
+        <button class="btn secondary" id="j4-s1-reject" disabled>❌ Refuser (MJ)</button>
+      </div>
+    </div>
+  `;
+}
+function j4_hookStep1(index) {
+  const S = getJeu4State(index);
+  const inp = document.getElementById("j4-s1-inp");
+  const add = document.getElementById("j4-s1-add");
+  const list = document.getElementById("j4-s1-list");
+  const ok = document.getElementById("j4-s1-accept");
+  const ko = document.getElementById("j4-s1-reject");
+
+  function refresh() {
+    list.innerHTML = "";
+    (S.step1.ideas || []).forEach((t, i) => {
+      const chip = document.createElement("span");
+      chip.className = "pill";
+      chip.textContent = t;
+      const del = document.createElement("button");
+      del.className = "btn secondary";
+      del.textContent = "×";
+      del.style.marginLeft = "6px";
+      del.onclick = () => {
+        S.step1.ideas.splice(i, 1);
+        refresh();
+      };
+      const wrap = document.createElement("div");
+      wrap.className = "memo-line";
+      wrap.style.display = "inline-flex";
+      wrap.style.gap = "6px";
+      wrap.appendChild(chip);
+      wrap.appendChild(del);
+      list.appendChild(wrap);
+    });
+    ok.disabled = S.step1.ideas.length < 3;
+    ko.disabled = S.step1.ideas.length < 3;
+  }
+
+  add.onclick = () => {
+    const v = (inp.value || "").trim();
+    if (!v) return;
+    S.step1.ideas.push(v);
+    inp.value = "";
+    refresh();
+  };
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      add.click();
+    }
+  });
+  ok.onclick = () => {
+    ajouterMemo("Cibles partenaires (brainstorm)", S.step1.ideas.join(" | "));
+    showFeedback(true, "Étape 1 validée (MJ).");
+    S.step = 2;
+    renderJeu4(index);
+  };
+  ko.onclick = () =>
+    showFeedback(false, "Refusé par le MJ — ajustez la liste.");
+
+  refresh();
+}
+
+/* ---------------- Étape 2 : QCM multi — partenaires actuels ---------------- */
+function j4_renderStep2(D) {
+  return `
+    <div class="card">
+      <h4>Étape 2 — Qui sont nos partenaires actuels ?</h4>
+      <div class="mj-badge">Sélectionnez tous les partenaires actuels (réponses multiples).</div>
+      <div id="j4-s2-wrap"></div>
+      <div class="actions"><button class="btn" id="j4-s2-validate">Valider & Continuer</button></div>
+      <div id="j4-s2-fb" class="feedback"></div>
+    </div>
+  `;
+}
+function j4_hookStep2(index, D) {
+  const S = getJeu4State(index);
+  const wrap = document.getElementById("j4-s2-wrap");
+  const btn = document.getElementById("j4-s2-validate");
+  const fb = document.getElementById("j4-s2-fb");
+
+  // On mélange vraies + leurres
+  const base = D.partenairesActuels || [];
+  const leurres = ["Capgemini", "Dassault Systèmes", "EDF", "TotalEnergies"];
+  const pool = [...new Set([...base, ...leurres])].sort();
+
+  wrap.innerHTML = pool
+    .map(
+      (name, i) => `
+    <label class="option">
+      <input type="checkbox" name="j4s2" value="${name}">
+      <span>${name}</span>
+    </label>
+  `
+    )
+    .join("");
+
+  btn.onclick = () => {
+    const chosen = Array.from(
+      document.querySelectorAll('input[name="j4s2"]:checked')
+    ).map((e) => e.value);
+    S.step2.checked = chosen;
+
+    const correctSet = new Set(base);
+    const ok =
+      chosen.length > 0 &&
+      chosen.every((c) => correctSet.has(c)) &&
+      base.every((b) => chosen.includes(b));
+
+    fb.className = "feedback " + (ok ? "ok" : "ko");
+    fb.textContent = ok ? "✅ Exact !" : "❌ Incomplet ou incorrect.";
+    setTimeout(() => {
+      getJeu4State(index).step = 3;
+      renderJeu4(index);
+    }, 700);
+  };
+}
+
+/* ---------------- Étape 3 : QCM — essai + renouvellement ---------------- */
+function j4_renderStep3(D) {
+  const R = D.renouvellement || {};
+  return `
+    <div class="card">
+      <h4>Étape 3a — Entreprise en période d’essai (1 an)</h4>
+      <div id="j4-s3a" class="memo-body">
+        ${["PWC", "BNP Paribas", "PROPULSE", "JPM"]
+          .map(
+            (name, i) => `
+          <label class="option">
+            <input type="radio" name="j4s3a" value="${name}">
+            <span>${name}</span>
+          </label>`
+          )
+          .join("")}
+      </div>
+
+      <h4 style="margin-top:12px;">Étape 3b — Renouvellement des conventions</h4>
+      <p class="muted">Quand renouveler et où trouver l’info ?</p>
+      <div class="memo-body">
+        <label class="option">
+          <span>Période</span>
+          <select id="j4-s3-periode" class="input">
+            ${["Janvier", "Décembre", "Mars"]
+              .map((x) => `<option>${x}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <label class="option">
+          <span>Où trouver l’info ?</span>
+          <select id="j4-s3-dossier" class="input">
+            ${[
+              "SMQ",
+              "Stratégie et pilotage",
+              "Gestion des Ressources Humaines",
+            ]
+              .map((x) => `<option>${x}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <div class="mj-badge">Durées possibles de conventions (multi) :</div>
+        <div id="j4-s3-durees">
+          ${(R.durees || ["1 an", "2 ans", "3 ans", "5 ans"])
+            .map(
+              (d) => `
+            <label class="option"><input type="checkbox" name="j4s3d" value="${d}"> <span>${d}</span></label>
+          `
+            )
+            .join("")}
+        </div>
+      </div>
+
+      <div class="actions"><button class="btn" id="j4-s3-validate">Valider & Continuer</button></div>
+      <div id="j4-s3-fb" class="feedback"></div>
+    </div>
+  `;
+}
+function j4_hookStep3(index, D) {
+  const S = getJeu4State(index);
+  const R = D.renouvellement || {};
+  const fb = document.getElementById("j4-s3-fb");
+  document.getElementById("j4-s3-validate").onclick = () => {
+    const essai =
+      document.querySelector('input[name="j4s3a"]:checked')?.value || "";
+    const periode = document.getElementById("j4-s3-periode").value;
+    const dossier = document.getElementById("j4-s3-dossier").value;
+    const durees = Array.from(
+      document.querySelectorAll('input[name="j4s3d"]:checked')
+    ).map((e) => e.value);
+
+    S.step3.essaiChoix = essai;
+    S.step3.periode = periode;
+    S.step3.dossier = dossier;
+    S.step3.durees = durees;
+
+    const okEssai = essai === (D.partenaireEssai || "PWC");
+    const okPeriode = periode === (R.bonnePeriode || "Janvier");
+    const okDossier = dossier === (R.bonDossier || "Stratégie et pilotage");
+    const goodDur = new Set(R.bonneDurees || ["1 an", "2 ans"]);
+    const okDur =
+      durees.length > 0 &&
+      durees.every((d) => goodDur.has(d)) &&
+      [...goodDur].every((d) => durees.includes(d));
+
+    const allOk = okEssai && okPeriode && okDossier && okDur;
+    fb.className = "feedback " + (allOk ? "ok" : "ko");
+    fb.textContent = allOk ? "✅ Parfait." : "❌ Vérifiez vos choix.";
+    setTimeout(() => {
+      getJeu4State(index).step = 4;
+      renderJeu4(index);
+    }, 700);
+  };
+}
+
+/* ---------------- Étape 4 : Brainstorm types d’entreprises (MJ) ---------------- */
+function j4_renderStep4() {
+  return `
+    <div class="card">
+      <h4>Étape 4 — Brainstorm : types d’entreprises à prospecter</h4>
+      <div class="mj-badge">Aucune mauvaise réponse. Validation par le MJ.</div>
+      <div style="display:flex; gap:8px; margin:8px 0;">
+        <input id="j4-s4-inp" class="input" placeholder="Ex : PME industrie, ESN, bureau d’études…"/>
+        <button class="btn" id="j4-s4-add">Ajouter</button>
+      </div>
+      <div id="j4-s4-list" class="memo-body" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+      <div class="mj-actions">
+        <span class="mj-badge">Validation : Maître du jeu</span>
+        <button class="btn" id="j4-s4-accept" disabled>✅ Valider (MJ)</button>
+        <button class="btn secondary" id="j4-s4-reject" disabled>❌ Refuser (MJ)</button>
+      </div>
+    </div>
+  `;
+}
+function j4_hookStep4(index) {
+  const S = getJeu4State(index);
+  const inp = document.getElementById("j4-s4-inp");
+  const add = document.getElementById("j4-s4-add");
+  const list = document.getElementById("j4-s4-list");
+  const ok = document.getElementById("j4-s4-accept");
+  const ko = document.getElementById("j4-s4-reject");
+
+  function refresh() {
+    list.innerHTML = "";
+    (S.step4.ideas || []).forEach((t, i) => {
+      const chip = document.createElement("span");
+      chip.className = "pill";
+      chip.textContent = t;
+      const del = document.createElement("button");
+      del.className = "btn secondary";
+      del.textContent = "×";
+      del.style.marginLeft = "6px";
+      del.onclick = () => {
+        S.step4.ideas.splice(i, 1);
+        refresh();
+      };
+      const wrap = document.createElement("div");
+      wrap.className = "memo-line";
+      wrap.style.display = "inline-flex";
+      wrap.style.gap = "6px";
+      wrap.appendChild(chip);
+      wrap.appendChild(del);
+      list.appendChild(wrap);
+    });
+    ok.disabled = S.step4.ideas.length < 3;
+    ko.disabled = S.step4.ideas.length < 3;
+  }
+
+  add.onclick = () => {
+    const v = (inp.value || "").trim();
+    if (!v) return;
+    S.step4.ideas.push(v);
+    inp.value = "";
+    refresh();
+  };
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      add.click();
+    }
+  });
+  ok.onclick = () => {
+    ajouterMemo("Types d’entreprises", S.step4.ideas.join(" | "));
+    showFeedback(true, "Étape 4 validée (MJ).");
+    S.step = 5;
+    renderJeu4(index);
+  };
+  ko.onclick = () =>
+    showFeedback(false, "Refusé par le MJ — ajustez la liste.");
+  refresh();
+}
+
+/* ---------------- Étape 5 : QCM multi — secteurs/cibles pertinents ---------------- */
+function j4_renderStep5(D) {
+  const pool = D.secteursPertinents || [
+    "PME",
+    "Industries",
+    "ETI",
+    "Startups",
+    "Collectivités",
+    "Ecoles/Universités",
+  ];
+  // On ajoute quelques leurres
+  const all = [...pool, "Particuliers B2C", "Artisans individuels"].sort();
+  return `
+    <div class="card">
+      <h4>Étape 5 — Cibles pertinentes</h4>
+      <div class="mj-badge">Cochez tous les types de cibles pertinents (multi).</div>
+      ${all
+        .map(
+          (name) => `
+        <label class="option"><input type="checkbox" name="j4s5" value="${name}"><span>${name}</span></label>
+      `
+        )
+        .join("")}
+      <div class="actions"><button class="btn" id="j4-s5-validate">Valider & Continuer</button></div>
+      <div id="j4-s5-fb" class="feedback"></div>
+    </div>
+  `;
+}
+function j4_hookStep5(index, D) {
+  const S = getJeu4State(index);
+  const btn = document.getElementById("j4-s5-validate");
+  const fb = document.getElementById("j4-s5-fb");
+  btn.onclick = () => {
+    const chosen = Array.from(
+      document.querySelectorAll('input[name="j4s5"]:checked')
+    ).map((e) => e.value);
+    S.step5.checked = chosen;
+    const good = new Set(D.secteursPertinents || []);
+    const ok =
+      chosen.length > 0 &&
+      chosen.every((c) => good.has(c)) &&
+      [...good].every((g) => chosen.includes(g));
+    fb.className = "feedback " + (ok ? "ok" : "ko");
+    fb.textContent = ok
+      ? "✅ Bien ciblé."
+      : "❌ Il manque des cibles pertinentes.";
+    setTimeout(() => {
+      getJeu4State(index).step = 6;
+      renderJeu4(index);
+    }, 700);
+  };
+}
+
+/* ---------------- Étape 6 : Budget & justification ---------------- */
+function j4_renderStep6(D) {
+  const roles = D.roles || [
+    "Présidence",
+    "Trésorerie",
+    "Secrétariat",
+    "Événementiel",
+    "Communication",
+  ];
+  return `
+    <div class="card">
+      <h4>Étape 6 — Budget partenaires par pôle</h4>
+      <div class="grid small">
+        ${roles
+          .map(
+            (p) => `
+          <div class="memo-line">
+            <label style="display:block; font-weight:700; margin-bottom:6px">${p}</label>
+            <input class="input" id="j4-s6-${slug(
+              p
+            )}" placeholder="ex. 300 € (supports), 200 € (événements)…"/>
+          </div>
+        `
+          )
+          .join("")}
+      </div>
+      <label class="option" style="margin-top:8px;"><span>Expliquez vos choix</span></label>
+      <textarea id="j4-s6-why" class="textarea" placeholder="Pourquoi cette répartition ? Quelles actions ?"></textarea>
+
+      <div class="mj-actions"><button class="btn" id="j4-s6-validate" disabled>Continuer</button></div>
+    </div>
+  `;
+}
+function j4_hookStep6(index, D) {
+  const S = getJeu4State(index);
+  const roles = D.roles || [
+    "Présidence",
+    "Trésorerie",
+    "Secrétariat",
+    "Événementiel",
+    "Communication",
+  ];
+  const inputs = roles.map((p) => document.getElementById(`j4-s6-${slug(p)}`));
+  const why = document.getElementById("j4-s6-why");
+  const btn = document.getElementById("j4-s6-validate");
+
+  function check() {
+    const allOk =
+      inputs.every((el) => (el.value || "").trim()) && (why.value || "").trim();
+    btn.disabled = !allOk;
+  }
+  inputs.forEach((el) => el.addEventListener("input", check));
+  why.addEventListener("input", check);
+
+  btn.onclick = () => {
+    roles.forEach((p, i) => (S.step6.budgets[p] = inputs[i].value.trim()));
+    S.step6.why = why.value.trim();
+    ajouterMemo(
+      "Budgets",
+      roles.map((p) => `${p}: ${S.step6.budgets[p]}`).join(" | ")
+    );
+    ajouterMemo("Justification", S.step6.why);
+    S.step = 7;
+    renderJeu4(index);
+  };
+  check();
+}
+
+/* ---------------- Étape 7 : Exemples d’entreprises + pourquoi (MJ) ---------------- */
+function j4_renderStep7() {
+  return `
+    <div class="card">
+      <h4>Étape 7 — Exemples d’entreprises à approcher</h4>
+      <div class="mj-badge">Réponse libre, validation par le MJ.</div>
+      <textarea id="j4-s7" class="textarea" placeholder="Citez des entreprises + pourquoi elles sont pertinentes pour le mandat…"></textarea>
+      <div class="mj-actions">
+        <span class="mj-badge">Validation : Maître du jeu</span>
+        <button class="btn" id="j4-s7-accept">✅ Valider (MJ)</button>
+        <button class="btn secondary" id="j4-s7-reject">❌ Refuser (MJ)</button>
+      </div>
+      <div id="j4-s7-fb" class="feedback"></div>
+    </div>
+  `;
+}
+function j4_hookStep7(index) {
+  const S = getJeu4State(index);
+  const txt = document.getElementById("j4-s7");
+  const fb = document.getElementById("j4-s7-fb");
+  const m = missions[index];
+
+  document.getElementById("j4-s7-accept").onclick = () => {
+    const v = (txt.value || "").trim();
+    if (!v) return showFeedback(false, "Réponse vide.");
+    S.step7.texte = v;
+    lockMission(index);
+    logResult(
+      index,
+      true,
+      `[Jeu4] S1:${(S.step1.ideas || []).join(", ")} | S2:${(
+        S.step2.checked || []
+      ).join(", ")} | S3:${S.step3.essaiChoix}/${S.step3.periode}/${
+        S.step3.dossier
+      }/${(S.step3.durees || []).join(",")} | S4:${(S.step4.ideas || []).join(
+        ", "
+      )} | S5:${(S.step5.checked || []).join(", ")} | S6:${JSON.stringify(
+        S.step6
+      )} | S7:${v.slice(0, 180)}`
+    );
+    applySuccess(m);
+    fb.className = "feedback ok";
+    fb.textContent = "✅ Jeu 4 validé !";
+  };
+  document.getElementById("j4-s7-reject").onclick = () => {
+    fb.className = "feedback ko";
+    fb.textContent = "❌ Refusé par le MJ — complétez la réponse.";
+  };
+}
