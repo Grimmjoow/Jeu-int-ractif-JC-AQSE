@@ -1426,3 +1426,181 @@ function hookStep6Handlers(index) {
 
   check();
 }
+
+/* =========================================================
+   JEU 3 : Cohésion
+========================================================= */
+
+function getJeu3State(index) {
+  if (!etatDuJeu.jeu3) etatDuJeu.jeu3 = {};
+  if (!etatDuJeu.jeu3[index]) etatDuJeu.jeu3[index] = { step: 1, answers: {} };
+  return etatDuJeu.jeu3[index];
+}
+
+function renderJeu3(index) {
+  const state = getJeu3State(index);
+  const body = document.getElementById("mission-body");
+
+  if (state.step === 1) {
+    body.innerHTML += `
+      <h4>Étape 1 : Réponses libres (Présidence / Trésorerie / Secrétariat)</h4>
+      <textarea id="jeu3-step1" class="textarea"></textarea>
+      <button class="btn" onclick="validerJeu3Step1(${index})">Valider étape 1</button>
+    `;
+  } else if (state.step === 2) {
+    body.innerHTML += `
+      <h4>Étape 2 : Réponse libre (Présidence)</h4>
+      <textarea id="jeu3-step2" class="textarea"></textarea>
+      <button class="btn" onclick="validerJeu3Step2(${index})">Valider étape 2</button>
+    `;
+  } else if (state.step === 3) {
+    body.innerHTML += `
+      <h4>Étape 3 : QCM commun</h4>
+      <label><input type="radio" name="jeu3q1" value="A"/> Réponse A</label>
+      <label><input type="radio" name="jeu3q1" value="B"/> Réponse B</label>
+      <button class="btn" onclick="validerJeu3Step3(${index})">Valider étape 3</button>
+    `;
+  } else if (state.step === 4) {
+    body.innerHTML += `
+      <h4>Étape 4 : Attribution avec justification</h4>
+      <input class="input" placeholder="Idée"/> 
+      <select id="jeu3-role">
+        <option value="Présidence">Présidence</option>
+        <option value="Trésorerie">Trésorerie</option>
+        <option value="Secrétariat">Secrétariat</option>
+        <option value="Événementiel">Événementiel</option>
+        <option value="Communication">Communication</option>
+      </select>
+      <textarea id="jeu3-justif" class="textarea" placeholder="Expliquez pourquoi..."></textarea>
+      <button class="btn" onclick="validerJeu3Step4(${index})">Valider étape 4</button>
+    `;
+  } else {
+    body.innerHTML += `
+      <div class="end-screen">🎉 Jeu 3 terminé !</div>
+    `;
+  }
+}
+
+/* ========= State minimal pour Jeu 3 ========= */
+function getJeu3State(index) {
+  if (!etatDuJeu._jeu3) etatDuJeu._jeu3 = {};
+  if (!etatDuJeu._jeu3[index]) {
+    etatDuJeu._jeu3[index] = {
+      step: 1,
+      answers: {
+        step1: "", // réponses libres P/T/S consolidées (texte)
+        step2: "", // réponse libre Présidence
+        step3: { choix: null, ok: null }, // QCM commun
+        step4: { idee: "", role: "", why: "" }, // tagging + justification
+      },
+    };
+  }
+  return etatDuJeu._jeu3[index];
+}
+
+/* ========= Étape 1 : réponses libres P/T/S ========= */
+function validerJeu3Step1(index) {
+  if (isLocked(index))
+    return showFeedback(false, "Cette mission est déjà validée.");
+
+  const textarea = document.getElementById("jeu3-step1");
+  const v = (textarea?.value || "").trim();
+  if (!v) return showFeedback(false, "Réponse vide. Ajoute du contenu.");
+
+  const S = getJeu3State(index);
+  S.answers.step1 = v;
+
+  ajouterMemo("Cohésion – Étape 1", v.slice(0, 200));
+  showFeedback(true, "Étape 1 validée.");
+  S.step = 2;
+  renderJeu3(index);
+}
+
+/* ========= Étape 2 : réponse libre Présidence ========= */
+function validerJeu3Step2(index) {
+  if (isLocked(index))
+    return showFeedback(false, "Cette mission est déjà validée.");
+
+  const textarea = document.getElementById("jeu3-step2");
+  const v = (textarea?.value || "").trim();
+  if (!v) return showFeedback(false, "Réponse vide. Ajoute du contenu.");
+
+  const S = getJeu3State(index);
+  S.answers.step2 = v;
+
+  ajouterMemo("Cohésion – Étape 2 (Présidence)", v.slice(0, 200));
+  showFeedback(true, "Étape 2 validée.");
+  S.step = 3;
+  renderJeu3(index);
+}
+
+/* ========= Étape 3 : QCM commun ========= */
+function validerJeu3Step3(index) {
+  if (isLocked(index))
+    return showFeedback(false, "Cette mission est déjà validée.");
+
+  // Ton QCM simple : A/B (on met B comme bonne réponse)
+  const choisi =
+    document.querySelector('input[name="jeu3q1"]:checked')?.value || null;
+  if (!choisi) return showFeedback(false, "Choisis une réponse.");
+
+  const BONNE = "B"; // ajuste si besoin
+  const ok = choisi === BONNE;
+
+  const S = getJeu3State(index);
+  S.answers.step3.choix = choisi;
+  S.answers.step3.ok = ok;
+
+  ajouterMemo(
+    "Cohésion – Étape 3 (QCM)",
+    `Choix: ${choisi} • Résultat: ${ok ? "✅" : "❌"}`
+  );
+  showFeedback(ok, ok ? "Bonne réponse." : "Mauvaise réponse (on continue).");
+
+  // On laisse avancer même si faux (change si tu veux obliger la bonne réponse)
+  S.step = 4;
+  renderJeu3(index);
+}
+
+/* ========= Étape 4 : Tagging + justification (validation finale) ========= */
+function validerJeu3Step4(index) {
+  if (isLocked(index))
+    return showFeedback(false, "Cette mission est déjà validée.");
+
+  const ideaInput = document.querySelector("#mission-body input.input"); // l’input "Idée"
+  const roleSel = document.getElementById("jeu3-role");
+  const whyTxt = document.getElementById("jeu3-justif");
+
+  const idee = (ideaInput?.value || "").trim();
+  const role = (roleSel?.value || "").trim();
+  const why = (whyTxt?.value || "").trim();
+
+  if (!idee) return showFeedback(false, "Ajoute au moins une idée.");
+  if (!role) return showFeedback(false, "Choisis un pôle.");
+  if (!why) return showFeedback(false, "Explique ta justification.");
+
+  const S = getJeu3State(index);
+  S.answers.step4.idee = idee;
+  S.answers.step4.role = role;
+  S.answers.step4.why = why;
+
+  // Journal + mémo
+  ajouterMemo("Cohésion – Étape 4 (Tagging)", `${idee} → ${role}`);
+  ajouterMemo("Justification", why.slice(0, 300));
+
+  // Validation finale du Jeu 3 : on attribue l’XP de la mission, on verrouille
+  const m = missions[index];
+  lockMission(index);
+  logResult(
+    index,
+    true,
+    `[Jeu3] S1:${S.answers.step1.slice(0, 120)} | S2:${S.answers.step2.slice(
+      0,
+      120
+    )} | S3:${S.answers.step3.choix}/${
+      S.answers.step3.ok ? "OK" : "KO"
+    } | S4:${idee}->${role} | WHY:${why.slice(0, 180)}`
+  );
+  applySuccess(m);
+  showFeedback(true, "Jeu 3 validé 🎉");
+}
