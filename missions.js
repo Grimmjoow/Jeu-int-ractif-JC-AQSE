@@ -25,13 +25,28 @@ const missions = [
   {
     id: "jeu2",
     role: "Jeu",
-    type: "choix",
-    titre: "Jeu 2",
-    question: "Choisis la bonne réponse.",
-    options: ["Réponse 1", "Réponse 2", "Réponse 3"],
-    bonneReponse: 1, // Réponse 2
+    type: "jeu2", // <- nouveau type
+    titre: "Jeu 2 – Série de 6 questions par pôles",
+    question:
+      "Répondez aux 6 étapes : textes par pôles, QCM communs, brainstorming, puis budget & justification.",
+    // Contenu minimal de QCM (modifiable)
+    qcm: [
+      {
+        titre: "Étape 3 – QCM commun #1",
+        question: "Choisissez la meilleure option.",
+        options: ["Option A", "Option B", "Option C"],
+        bonneReponse: 1, // index (ici 'Option B')
+      },
+      {
+        titre: "Étape 4 – QCM commun #2",
+        question: "Choisissez la seule réponse correcte.",
+        options: ["Réponse 1", "Réponse 2", "Réponse 3"],
+        bonneReponse: 2, // 'Réponse 3'
+      },
+    ],
+    // Rôles affichés pour guider la saisie
+    roles: ["Présidence", "Trésorerie", "Secrétariat"],
     scoring: { xp: 25 },
-    timerSec: 60,
   },
   {
     id: "jeu3",

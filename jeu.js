@@ -153,6 +153,7 @@ function renderMission(index) {
     <p>${m.question || ""}</p>
   `;
 
+  // Chrono éventuel : on prépare l'UI du timer
   if (m.timerSec) {
     html += `
       <div class="timer-wrap"><div id="timer-bar" class="timer-bar"></div></div>
@@ -160,6 +161,7 @@ function renderMission(index) {
     `;
   }
 
+  /* ---------- Types natifs (qcm / choix / texte) ---------- */
   if (m.type === "qcm") {
     (m.options || []).forEach((opt, i) => {
       html += `
@@ -196,9 +198,11 @@ function renderMission(index) {
             : `<button class="btn" onclick="validerTexte(${index})">Valider</button>`
         }
       </div>`;
+
+    /* ---------- Types personnalisés ---------- */
   } else if (m.type === "brainstorm") {
-    // ⚡ Nouveau type : on délègue au rendu spécifique
-    body.innerHTML = html; // on garde l’entête commune
+    // Jeu 1 — Brainstorm (2 étapes)
+    body.innerHTML = html;
     if (m.timerSec) {
       startTimer(m.timerSec, () => {
         showFeedback(false, "⏱️ Temps écoulé.");
@@ -211,14 +215,78 @@ function renderMission(index) {
       ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
       return;
     }
-    // Appel du renderer dédié (doit être défini ailleurs dans jeu.js)
-    renderBrainstorm(index);
+    renderBrainstorm(index); // <-- fournie plus haut
+    document.getElementById("feedback").textContent = "";
+    return;
+  } else if (m.type === "jeu2") {
+    // Jeu 2 — Série de 6 étapes (textes/QCM/brainstorm/budget)
+    body.innerHTML = html;
+    if (m.timerSec) {
+      startTimer(m.timerSec, () => {
+        showFeedback(false, "⏱️ Temps écoulé.");
+        if (m.penalty?.xp) majIndics({ xp: m.penalty.xp });
+        ajouterMemo("Timer", "Temps écoulé");
+      });
+    }
+    if (isLocked(index)) {
+      disableCurrentInputs();
+      ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
+      return;
+    }
+    renderJeu2(index); // <-- ajoute/colle la fonction fournie
+    document.getElementById("feedback").textContent = "";
+    return;
+  } else if (m.type === "jeu3") {
+    // Placeholder Jeu 3 — tu brancheras renderJeu3 quand prêt
+    body.innerHTML = html;
+    if (m.timerSec) {
+      startTimer(m.timerSec, () => {
+        showFeedback(false, "⏱️ Temps écoulé.");
+        if (m.penalty?.xp) majIndics({ xp: m.penalty.xp });
+        ajouterMemo("Timer", "Temps écoulé");
+      });
+    }
+    if (isLocked(index)) {
+      disableCurrentInputs();
+      ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
+      return;
+    }
+    if (typeof renderJeu3 === "function") {
+      renderJeu3(index);
+    } else {
+      document.getElementById("mission-body").innerHTML += `
+        <div class="end-screen">Le contenu du Jeu 3 sera ajouté prochainement.</div>`;
+    }
+    document.getElementById("feedback").textContent = "";
+    return;
+  } else if (m.type === "jeu4") {
+    // Placeholder Jeu 4 — tu brancheras renderJeu4 quand prêt
+    body.innerHTML = html;
+    if (m.timerSec) {
+      startTimer(m.timerSec, () => {
+        showFeedback(false, "⏱️ Temps écoulé.");
+        if (m.penalty?.xp) majIndics({ xp: m.penalty.xp });
+        ajouterMemo("Timer", "Temps écoulé");
+      });
+    }
+    if (isLocked(index)) {
+      disableCurrentInputs();
+      ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
+      return;
+    }
+    if (typeof renderJeu4 === "function") {
+      renderJeu4(index);
+    } else {
+      document.getElementById("mission-body").innerHTML += `
+        <div class="end-screen">Le contenu du Jeu 4 sera ajouté prochainement.</div>`;
+    }
     document.getElementById("feedback").textContent = "";
     return;
   } else {
     html += `<div class="end-screen">Type de mission à venir.</div>`;
   }
 
+  // Rendu final pour les types natifs (qcm/choix/texte)
   body.innerHTML = html;
   document.getElementById("feedback").textContent = "";
 
@@ -951,4 +1019,410 @@ function setupBrainstormPhase2(index, roles, expectedCount) {
   };
 
   renderRows();
+}
+
+/* =========================================================
+   JEU 2 — Séquence 6 étapes
+   1) Textes libres par pôle (Présidence/Trésorerie/Secrétariat)
+   2) Texte libre par Présidence
+   3) QCM commun #1
+   4) QCM commun #2
+   5) Brainstorm (liste d’idées)
+   6) Budget par pôle (liste) + justification
+   Validation finale -> XP + déblocage Jeu 3
+========================================================= */
+
+function getJeu2State(index) {
+  if (!etatDuJeu._jeu2) etatDuJeu._jeu2 = {};
+  if (!etatDuJeu._jeu2[index]) {
+    etatDuJeu._jeu2[index] = {
+      step: 1,
+      // données récoltées :
+      step1: { Presidence: "", Tresorerie: "", Secretariat: "" },
+      step2: { Presidence: "" },
+      step3: { choix: null, ok: null },
+      step4: { choix: null, ok: null },
+      step5: { ideas: [] },
+      step6: {
+        budgets: {
+          Presidence: "",
+          Tresorerie: "",
+          Secretariat: "",
+          Evenementiel: "",
+          Communication: "",
+        },
+        why: "",
+      },
+    };
+  }
+  return etatDuJeu._jeu2[index];
+}
+
+function renderJeu2(index) {
+  const m = missions[index];
+  const body = document.getElementById("mission-body");
+  if (!body) return;
+
+  const S = getJeu2State(index);
+
+  // En-tête commun
+  let html = `
+    <h3 class="mission-title">${m.titre}</h3>
+    <div class="mission-meta">
+      <span class="role-badge">Jeu 2</span>
+      ${m.scoring?.xp ? `&nbsp;•&nbsp; ${m.scoring.xp} XP` : ""}
+    </div>
+    <p>${m.question || ""}</p>
+    <div class="muted">Étape ${S.step} / 6</div>
+  `;
+
+  // Contenu selon l’étape
+  if (S.step === 1) {
+    html += renderJeu2Step1();
+  } else if (S.step === 2) {
+    html += renderJeu2Step2();
+  } else if (S.step === 3) {
+    html += renderJeu2Step3(m);
+  } else if (S.step === 4) {
+    html += renderJeu2Step4(m);
+  } else if (S.step === 5) {
+    html += renderJeu2Step5();
+  } else if (S.step === 6) {
+    html += renderJeu2Step6();
+  }
+
+  body.innerHTML = html;
+
+  // brancher les handlers
+  if (S.step === 1) hookStep1Handlers(index);
+  else if (S.step === 2) hookStep2Handlers(index);
+  else if (S.step === 3) hookStep3Handlers(index);
+  else if (S.step === 4) hookStep4Handlers(index);
+  else if (S.step === 5) hookStep5Handlers(index);
+  else if (S.step === 6) hookStep6Handlers(index);
+
+  if (isLocked(index)) {
+    disableCurrentInputs();
+    ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
+  }
+}
+
+/* ---------- Étape 1 : textes par pôle P/T/S ---------- */
+function renderJeu2Step1() {
+  return `
+    <div class="card">
+      <h4>Étape 1 — Réponse libre par pôle</h4>
+      <div class="mj-badge">Présidence, Trésorerie, Secrétariat : complétez chacun votre zone.</div>
+      <label class="option"><span>Présidence</span></label>
+      <textarea id="j2-s1-pres" class="textarea" placeholder="Réponse Présidence…"></textarea>
+      <label class="option"><span>Trésorerie</span></label>
+      <textarea id="j2-s1-tres" class="textarea" placeholder="Réponse Trésorerie…"></textarea>
+      <label class="option"><span>Secrétariat</span></label>
+      <textarea id="j2-s1-sec" class="textarea" placeholder="Réponse Secrétariat…"></textarea>
+      <div class="actions"><button class="btn" id="j2-s1-next" disabled>Continuer</button></div>
+    </div>
+  `;
+}
+function hookStep1Handlers(index) {
+  const S = getJeu2State(index);
+  const pres = document.getElementById("j2-s1-pres");
+  const tres = document.getElementById("j2-s1-tres");
+  const sec = document.getElementById("j2-s1-sec");
+  const btn = document.getElementById("j2-s1-next");
+
+  function check() {
+    const ok = pres.value.trim() && tres.value.trim() && sec.value.trim();
+    btn.disabled = !ok;
+  }
+  [pres, tres, sec].forEach((el) => el.addEventListener("input", check));
+
+  btn.onclick = () => {
+    S.step1.Presidence = pres.value.trim();
+    S.step1.Tresorerie = tres.value.trim();
+    S.step1.Secretariat = sec.value.trim();
+    getJeu2State(index).step = 2;
+    renderJeu2(index);
+  };
+  check();
+}
+
+/* ---------- Étape 2 : texte par Présidence ---------- */
+function renderJeu2Step2() {
+  return `
+    <div class="card">
+      <h4>Étape 2 — Réponse libre (Présidence)</h4>
+      <textarea id="j2-s2-pres" class="textarea" placeholder="Réponse Présidence…"></textarea>
+      <div class="actions"><button class="btn" id="j2-s2-next" disabled>Continuer</button></div>
+    </div>
+  `;
+}
+function hookStep2Handlers(index) {
+  const S = getJeu2State(index);
+  const pres = document.getElementById("j2-s2-pres");
+  const btn = document.getElementById("j2-s2-next");
+  function check() {
+    btn.disabled = !pres.value.trim();
+  }
+  pres.addEventListener("input", check);
+  btn.onclick = () => {
+    S.step2.Presidence = pres.value.trim();
+    getJeu2State(index).step = 3;
+    renderJeu2(index);
+  };
+  check();
+}
+
+/* ---------- Étape 3 : QCM commun #1 ---------- */
+function renderJeu2Step3(m) {
+  const q = m.qcm?.[0];
+  const opts = (q?.options || [])
+    .map(
+      (o, i) => `
+    <label class="option">
+      <input type="radio" name="j2s3" value="${i}"><span>${o}</span>
+    </label>`
+    )
+    .join("");
+  return `
+    <div class="card">
+      <h4>${q?.titre || "Étape 3 — QCM commun #1"}</h4>
+      <p>${q?.question || ""}</p>
+      ${opts}
+      <div class="actions">
+        <button class="btn" id="j2-s3-validate" disabled>Valider & Continuer</button>
+      </div>
+      <div id="j2-s3-feedback" class="feedback"></div>
+    </div>
+  `;
+}
+function hookStep3Handlers(index) {
+  const S = getJeu2State(index);
+  const m = missions[index];
+  const q = m.qcm?.[0];
+  const btn = document.getElementById("j2-s3-validate");
+  const fb = document.getElementById("j2-s3-feedback");
+
+  document.querySelectorAll('input[name="j2s3"]').forEach((r) => {
+    r.addEventListener("change", () => {
+      btn.disabled = false;
+    });
+  });
+
+  btn.onclick = () => {
+    const choisi = parseInt(
+      document.querySelector('input[name="j2s3"]:checked')?.value ?? "-1",
+      10
+    );
+    S.step3.choix = choisi;
+    S.step3.ok = choisi === q?.bonneReponse;
+    fb.className = "feedback " + (S.step3.ok ? "ok" : "ko");
+    fb.textContent = S.step3.ok ? "✅ Bonne réponse" : "❌ Mauvaise réponse";
+    // avance après un court délai
+    setTimeout(() => {
+      getJeu2State(index).step = 4;
+      renderJeu2(index);
+    }, 600);
+  };
+}
+
+/* ---------- Étape 4 : QCM commun #2 ---------- */
+function renderJeu2Step4(m) {
+  const q = m.qcm?.[1];
+  const opts = (q?.options || [])
+    .map(
+      (o, i) => `
+    <label class="option">
+      <input type="radio" name="j2s4" value="${i}"><span>${o}</span>
+    </label>`
+    )
+    .join("");
+  return `
+    <div class="card">
+      <h4>${q?.titre || "Étape 4 — QCM commun #2"}</h4>
+      <p>${q?.question || ""}</p>
+      ${opts}
+      <div class="actions">
+        <button class="btn" id="j2-s4-validate" disabled>Valider & Continuer</button>
+      </div>
+      <div id="j2-s4-feedback" class="feedback"></div>
+    </div>
+  `;
+}
+function hookStep4Handlers(index) {
+  const S = getJeu2State(index);
+  const m = missions[index];
+  const q = m.qcm?.[1];
+  const btn = document.getElementById("j2-s4-validate");
+  const fb = document.getElementById("j2-s4-feedback");
+
+  document.querySelectorAll('input[name="j2s4"]').forEach((r) => {
+    r.addEventListener("change", () => {
+      btn.disabled = false;
+    });
+  });
+
+  btn.onclick = () => {
+    const choisi = parseInt(
+      document.querySelector('input[name="j2s4"]:checked')?.value ?? "-1",
+      10
+    );
+    S.step4.choix = choisi;
+    S.step4.ok = choisi === q?.bonneReponse;
+    fb.className = "feedback " + (S.step4.ok ? "ok" : "ko");
+    fb.textContent = S.step4.ok ? "✅ Bonne réponse" : "❌ Mauvaise réponse";
+    setTimeout(() => {
+      getJeu2State(index).step = 5;
+      renderJeu2(index);
+    }, 600);
+  };
+}
+
+/* ---------- Étape 5 : Brainstorm simple ---------- */
+function renderJeu2Step5() {
+  return `
+    <div class="card">
+      <h4>Étape 5 — Brainstorm (liste d’idées)</h4>
+      <div class="mj-badge">Ajoutez plusieurs idées (≥ 3) puis continuez.</div>
+      <div style="display:flex; gap:8px; margin:8px 0;">
+        <input id="j2-s5-input" class="input" placeholder="Saisir une idée…"/>
+        <button class="btn" id="j2-s5-add">Ajouter</button>
+      </div>
+      <div id="j2-s5-list" class="memo-body" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+      <div class="actions"><button class="btn" id="j2-s5-next" disabled>Continuer</button></div>
+    </div>
+  `;
+}
+function hookStep5Handlers(index) {
+  const S = getJeu2State(index);
+  const inp = document.getElementById("j2-s5-input");
+  const add = document.getElementById("j2-s5-add");
+  const list = document.getElementById("j2-s5-list");
+  const next = document.getElementById("j2-s5-next");
+
+  function refresh() {
+    list.innerHTML = "";
+    (S.step5.ideas || []).forEach((t, i) => {
+      const chip = document.createElement("span");
+      chip.className = "pill";
+      chip.textContent = t;
+      const del = document.createElement("button");
+      del.className = "btn secondary";
+      del.textContent = "×";
+      del.style.marginLeft = "6px";
+      del.onclick = () => {
+        S.step5.ideas.splice(i, 1);
+        refresh();
+      };
+      const wrap = document.createElement("div");
+      wrap.className = "memo-line";
+      wrap.style.display = "inline-flex";
+      wrap.style.gap = "6px";
+      wrap.appendChild(chip);
+      wrap.appendChild(del);
+      list.appendChild(wrap);
+    });
+    next.disabled = S.step5.ideas.length < 3;
+  }
+
+  add.onclick = () => {
+    const v = (inp.value || "").trim();
+    if (!v) return;
+    S.step5.ideas.push(v);
+    inp.value = "";
+    refresh();
+  };
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      add.click();
+    }
+  });
+  next.onclick = () => {
+    getJeu2State(index).step = 6;
+    renderJeu2(index);
+  };
+  refresh();
+}
+
+/* ---------- Étape 6 : Budget par pôle + justification ---------- */
+function renderJeu2Step6() {
+  return `
+    <div class="card">
+      <h4>Étape 6 — Budget par pôle & justification</h4>
+      <div class="grid small">
+        ${[
+          "Présidence",
+          "Trésorerie",
+          "Secrétariat",
+          "Événementiel",
+          "Communication",
+        ]
+          .map(
+            (p) => `
+          <div class="memo-line">
+            <label style="display:block; font-weight:700; margin-bottom:6px">${p}</label>
+            <input class="input" type="number" min="0" step="10" id="j2-s6-${slug(
+              p
+            )}" placeholder="Budget (en €)"/>
+          </div>
+        `
+          )
+          .join("")}
+      </div>
+      <label class="option" style="margin-top:8px;"><span>Expliquez vos choix</span></label>
+      <textarea id="j2-s6-why" class="textarea" placeholder="Pourquoi ces répartitions ?"></textarea>
+      <div class="actions"><button class="btn" id="j2-s6-validate" disabled>Valider le Jeu 2</button></div>
+    </div>
+  `;
+}
+function hookStep6Handlers(index) {
+  const S = getJeu2State(index);
+  const ids = [
+    "Présidence",
+    "Trésorerie",
+    "Secrétariat",
+    "Événementiel",
+    "Communication",
+  ].map((p) => `j2-s6-${slug(p)}`);
+  const inputs = ids.map((id) => document.getElementById(id));
+  const why = document.getElementById("j2-s6-why");
+  const btn = document.getElementById("j2-s6-validate");
+
+  function check() {
+    const budgetsOk = inputs.every((inp) => (inp.value || "").trim() !== "");
+    const whyOk = (why.value || "").trim().length > 0;
+    btn.disabled = !(budgetsOk && whyOk);
+  }
+  inputs.forEach((el) => el.addEventListener("input", check));
+  why.addEventListener("input", check);
+
+  btn.onclick = () => {
+    // Enregistrer
+    const keys = [
+      "Presidence",
+      "Tresorerie",
+      "Secretariat",
+      "Evenementiel",
+      "Communication",
+    ];
+    inputs.forEach((inp, i) => {
+      S.step6.budgets[keys[i]] = inp.value.trim();
+    });
+    S.step6.why = why.value.trim();
+
+    // Mémo + validation finale
+    const recapBudget = keys
+      .map((k) => `${k}: ${S.step6.budgets[k]}€`)
+      .join(" | ");
+    ajouterMemo("Budget par pôle", recapBudget);
+    ajouterMemo("Justification", S.step6.why);
+
+    // Finalisation
+    const m = missions[index];
+    lockMission(index);
+    logResult(index, true, `[BUDGET] ${recapBudget} | [WHY] ${S.step6.why}`);
+    applySuccess(index, m); // -> débloque Jeu 3
+  };
+
+  check();
 }
