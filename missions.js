@@ -49,15 +49,50 @@ const missions = [
     scoring: { xp: 25 },
   },
   {
-    id: "jeu3",
-    role: "Jeu",
+    id: "jeu3_etape1",
+    role: "Tous",
     type: "texte",
-    titre: "Jeu 3",
-    question: "Écris ta proposition (validation auto).",
-    placeholder: "Ta réponse ici…",
-    validation: "auto", // ou "mj" si tu veux forcer la validation manuelle
-    scoring: { xp: 25 },
-    timerSec: 90,
+    titre: "Idées pour la cohésion",
+    question:
+      "Quelles sont les choses à faire pour maintenir la cohésion d’équipe toute l’année (Erasmus, stages, etc.) ?",
+    validation: "mj",
+    scoring: { xp: 20 },
+  },
+  {
+    id: "jeu3_etape2",
+    role: "Tous",
+    type: "choix",
+    titre: "Fréquence des réunions",
+    question:
+      "Quelle fréquence de réunions est idéale pour garder la cohésion ?",
+    options: [
+      "Une fois par mois",
+      "Une fois toutes les deux semaines",
+      "Une fois par semaine",
+      "Tous les jours",
+    ],
+    bonneReponse: 2,
+    scoring: { xp: 20 },
+  },
+  {
+    id: "jeu3_etape3",
+    role: "Tous",
+    type: "brainstorm",
+    titre: "Cohésion avant fin décembre",
+    question:
+      "Proposez des actions concrètes pour renforcer la cohésion avant les départs.",
+    validation: "mj",
+    scoring: { xp: 30 },
+  },
+  {
+    id: "jeu3_etape4",
+    role: "Tous",
+    type: "tagging",
+    titre: "Répartition des responsabilités",
+    question:
+      "Attribuez chaque idée proposée au pôle concerné (Présidence, Trésorerie, Secrétariat, Événementiel, Communication).",
+    validation: "mj",
+    scoring: { xp: 30 },
   },
   {
     id: "jeu4",
