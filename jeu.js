@@ -196,6 +196,25 @@ function renderMission(index) {
             : `<button class="btn" onclick="validerTexte(${index})">Valider</button>`
         }
       </div>`;
+  } else if (m.type === "brainstorm") {
+    // ⚡ Nouveau type : on délègue au rendu spécifique
+    body.innerHTML = html; // on garde l’entête commune
+    if (m.timerSec) {
+      startTimer(m.timerSec, () => {
+        showFeedback(false, "⏱️ Temps écoulé.");
+        if (m.penalty?.xp) majIndics({ xp: m.penalty.xp });
+        ajouterMemo("Timer", "Temps écoulé");
+      });
+    }
+    if (isLocked(index)) {
+      disableCurrentInputs();
+      ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
+      return;
+    }
+    // Appel du renderer dédié (doit être défini ailleurs dans jeu.js)
+    renderBrainstorm(index);
+    document.getElementById("feedback").textContent = "";
+    return;
   } else {
     html += `<div class="end-screen">Type de mission à venir.</div>`;
   }
@@ -697,3 +716,239 @@ window.onload = () => {
   const btnReset = document.getElementById("btn-reset");
   if (btnReset) btnReset.onclick = resetGame;
 };
+
+/* =========================================================
+   JEU 1 : Brainstorm en 2 étapes
+   - Étape 1 : saisie libre d’idées + sélection de 5
+   - Étape 2 : étiquetage des 5 idées parmi 5 pôles
+   ========================================================= */
+
+function getBrainstormState(index) {
+  if (!etatDuJeu._brainstorm) etatDuJeu._brainstorm = {};
+  if (!etatDuJeu._brainstorm[index]) {
+    etatDuJeu._brainstorm[index] = { phase: 1, ideas: [] }; // {text, selected:false, tag:null}
+  }
+  return etatDuJeu._brainstorm[index];
+}
+
+function renderBrainstorm(index) {
+  const m = missions[index];
+  const body = document.getElementById("mission-body");
+  if (!body) return;
+
+  const state = getBrainstormState(index);
+  const roles = m.config?.roles || [
+    "Présidence",
+    "Trésorerie",
+    "Secrétariat",
+    "Événementiel",
+    "Communication",
+  ];
+  const maxSel = m.config?.maxSelected ?? 5;
+  const minIdeas = m.config?.minIdeas ?? 5;
+
+  let html = `
+    <h3 class="mission-title">${m.titre}</h3>
+    <div class="mission-meta">
+      <span class="role-badge">Jeu 1</span>
+      ${m.scoring?.xp ? `&nbsp;•&nbsp; ${m.scoring.xp} XP` : ""}
+    </div>
+    <p>${m.question || ""}</p>
+  `;
+
+  if (state.phase === 1) {
+    html += `
+      <div class="card">
+        <h4 style="margin:6px 0">Étape 1 — Brainstorm</h4>
+        <div class="mj-badge">Ajoute des idées (≥ ${minIdeas}), puis <strong>sélectionne ${maxSel}</strong>.</div>
+        <div style="display:flex; gap:8px; margin:8px 0;">
+          <input id="idea-input" class="input" placeholder="Écris une idée…" />
+          <button class="btn" id="btn-add-idea">Ajouter</button>
+        </div>
+        <div id="ideas-list" class="memo-body" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+        <div class="muted" style="margin-top:8px">
+          Idées : <span id="ideas-count">0</span> • Sélectionnées : <span id="sel-count">0</span> / ${maxSel}
+        </div>
+        <div class="actions" style="margin-top:10px;">
+          <button class="btn" id="btn-phase2" disabled>Passer à l’étape 2</button>
+        </div>
+      </div>
+    `;
+  } else {
+    html += `
+      <div class="card">
+        <h4 style="margin:6px 0">Étape 2 — Étiquetage des ${maxSel} idées</h4>
+        <div class="mj-badge">Clique sur un pôle pour attribuer l’idée.</div>
+        <div id="tagging-list" class="memo-body" style="display:grid; gap:10px;"></div>
+        <div class="actions" style="margin-top:10px;">
+          <button class="btn" id="btn-validate-brainstorm" disabled>Valider le Jeu 1</button>
+        </div>
+      </div>
+    `;
+  }
+
+  body.innerHTML = html;
+
+  if (state.phase === 1) {
+    setupBrainstormPhase1(index, minIdeas, maxSel);
+  } else {
+    setupBrainstormPhase2(index, roles, maxSel);
+  }
+
+  if (isLocked(index)) {
+    disableCurrentInputs();
+    ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
+  }
+}
+
+/* ===== PHASE 1 : Ajout & sélection ===== */
+function setupBrainstormPhase1(index, minIdeas, maxSel) {
+  const state = getBrainstormState(index);
+
+  const input = document.getElementById("idea-input");
+  const btnAdd = document.getElementById("btn-add-idea");
+  const list = document.getElementById("ideas-list");
+  const btnNext = document.getElementById("btn-phase2");
+  const ideasCount = document.getElementById("ideas-count");
+  const selCount = document.getElementById("sel-count");
+
+  function refreshList() {
+    list.innerHTML = "";
+    state.ideas.forEach((it, i) => {
+      const el = document.createElement("div");
+      el.className = "memo-line";
+      el.style.cursor = "pointer";
+      el.style.display = "inline-flex";
+      el.style.gap = "8px";
+      el.style.alignItems = "center";
+
+      const chip = document.createElement("span");
+      chip.textContent = it.text;
+      chip.style.fontWeight = "700";
+      chip.style.padding = "4px 8px";
+      chip.style.borderRadius = "999px";
+      chip.style.border = "1px solid rgba(255,255,255,0.10)";
+      chip.style.background = it.selected
+        ? "rgba(59,130,246,0.15)"
+        : "rgba(255,255,255,0.06)";
+
+      const del = document.createElement("button");
+      del.className = "btn secondary";
+      del.textContent = "×";
+      del.title = "Supprimer";
+      del.style.padding = "4px 8px";
+      del.onclick = (e) => {
+        e.stopPropagation();
+        state.ideas.splice(i, 1);
+        refreshList();
+      };
+
+      el.onclick = () => {
+        const selectedCount = state.ideas.filter((x) => x.selected).length;
+        if (!it.selected && selectedCount >= maxSel) return;
+        it.selected = !it.selected;
+        refreshList();
+      };
+
+      el.appendChild(chip);
+      el.appendChild(del);
+      list.appendChild(el);
+    });
+
+    const selectedCount = state.ideas.filter((x) => x.selected).length;
+    ideasCount.textContent = String(state.ideas.length);
+    selCount.textContent = String(selectedCount);
+
+    btnNext.disabled = !(
+      state.ideas.length >= minIdeas && selectedCount === maxSel
+    );
+  }
+
+  btnAdd.onclick = () => {
+    const v = (input.value || "").trim();
+    if (!v) return;
+    state.ideas.push({ text: v, selected: false, tag: null });
+    input.value = "";
+    refreshList();
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      btnAdd.click();
+    }
+  });
+
+  btnNext.onclick = () => {
+    state.phase = 2;
+    renderBrainstorm(index);
+  };
+
+  refreshList();
+}
+
+/* ===== PHASE 2 : Étiquetage ===== */
+function setupBrainstormPhase2(index, roles, expectedCount) {
+  const state = getBrainstormState(index);
+  const selected = state.ideas.filter((x) => x.selected);
+  const wrap = document.getElementById("tagging-list");
+  const btnValidate = document.getElementById("btn-validate-brainstorm");
+
+  function renderRows() {
+    wrap.innerHTML = "";
+    selected.forEach((it, i) => {
+      const row = document.createElement("div");
+      row.className = "memo-line";
+      row.style.display = "grid";
+      row.style.gridTemplateColumns = "1fr auto";
+      row.style.alignItems = "center";
+      row.style.gap = "8px";
+
+      const label = document.createElement("div");
+      label.innerHTML = `<strong>Idée ${i + 1} :</strong> ${escapeHtml(
+        it.text
+      )}`;
+
+      const actions = document.createElement("div");
+      actions.style.display = "flex";
+      actions.style.flexWrap = "wrap";
+      actions.style.gap = "6px";
+
+      roles.forEach((role) => {
+        const b = document.createElement("button");
+        b.className = "btn" + (it.tag === role ? "" : " secondary");
+        b.textContent = role;
+        b.style.padding = "6px 10px";
+        b.onclick = () => {
+          it.tag = role;
+          renderRows();
+        };
+        actions.appendChild(b);
+      });
+
+      if (it.tag) {
+        const badge = document.createElement("span");
+        badge.className = "role-badge";
+        badge.textContent = it.tag;
+        badge.style.marginLeft = "8px";
+        label.appendChild(badge);
+      }
+
+      row.appendChild(label);
+      row.appendChild(actions);
+      wrap.appendChild(row);
+    });
+
+    btnValidate.disabled = !selected.every((x) => !!x.tag);
+  }
+
+  btnValidate.onclick = () => {
+    const m = missions[index];
+    const reponses = selected.map((x) => `${x.text} → ${x.tag}`).join(" | ");
+    ajouterMemo("Idées retenues", reponses);
+    lockMission(index);
+    logResult(index, true, reponses);
+    applySuccess(index, m); // débloque Jeu 2
+  };
+
+  renderRows();
+}

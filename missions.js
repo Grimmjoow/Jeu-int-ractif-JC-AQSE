@@ -1,15 +1,26 @@
 // 4 jeux séquentiels — 25 XP chacun (total 100)
 const missions = [
   {
+    // Jeu 1 : Brainstorm + Étiquetage (25 XP)
     id: "jeu1",
     role: "Jeu",
-    type: "qcm",
-    titre: "Jeu 1",
-    question: "Sélectionne les 2 bonnes réponses.",
-    options: ["Option A", "Option B", "Option C", "Option D"],
-    bonnesReponses: [0, 2], // A et C
+    type: "brainstorm",
+    titre: "Jeu 1 – Brainstorm & Étiquetage",
+    question:
+      "Ajoute un maximum d’idées, sélectionne-en 5 puis attribue un pôle à chacune.",
+    config: {
+      minIdeas: 5, // au moins 5 idées pour avancer
+      maxSelected: 5, // on en retient 5
+      roles: [
+        "Présidence",
+        "Trésorerie",
+        "Secrétariat",
+        "Événementiel",
+        "Communication",
+      ],
+    },
     scoring: { xp: 25 },
-    timerSec: 60,
+    timerSec: 0,
   },
   {
     id: "jeu2",
