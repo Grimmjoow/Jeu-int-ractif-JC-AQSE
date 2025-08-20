@@ -1,12 +1,7 @@
-/************  Jeu — Progression par XP uniquement (barre %)  ************/
+/************  Jeu — 4 jeux séquentiels (barre % par XP)  ************/
 
-const POLES_ORDER = [
-  "Présidence",
-  "Trésorerie",
-  "Secrétariat",
-  "Événementiel",
-  "Communication",
-];
+// On ne s’appuie plus sur les pôles pour la timeline : 4 jeux fixes.
+const POLES_ORDER = ["Jeu 1", "Jeu 2", "Jeu 3", "Jeu 4"];
 
 // Indicateur unique : XP cumulé
 const indicateurs = { xp: 0 };
@@ -26,9 +21,9 @@ function computeXpMax() {
 let etatDuJeu = {
   etapesTerminees: [],
   missionActuelle: null,
-  poleActuel: null,
   timer: { handle: null, total: 0, left: 0, expired: false },
-  seq: { ordre: [], pos: 0 },
+  // Séquencement strict : 0 = Jeu 1 débloqué uniquement au début
+  unlockedIndex: 0,
 };
 
 // Journal simple si besoin d’un bilan (non exporté)
@@ -43,42 +38,7 @@ function lockMission(idx) {
   missionLocked.add(idx);
 }
 
-/* ---------- Utils rôles ---------- */
-function normalize(str = "") {
-  return str
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-function displayRole(roleLabel = "") {
-  const r = normalize(roleLabel);
-  if (!roleLabel) return "Étape";
-  if (
-    r.includes("partenariat") ||
-    r.includes("developpement") ||
-    r.includes("commercial")
-  )
-    return "Présidence";
-  if (r.includes("secretariat")) return "Secrétariat";
-  if (r.includes("tresorerie")) return "Trésorerie";
-  if (r.includes("evenementiel")) return "Événementiel";
-  if (r.includes("presidence")) return "Présidence";
-  if (r.includes("communication")) return "Communication";
-  return roleLabel;
-}
-function roleClass(roleLabel) {
-  const role = displayRole(roleLabel);
-  const r = normalize(role);
-  if (r.includes("presidence")) return "role-pres";
-  if (r.includes("tresorerie")) return "role-treso";
-  if (r.includes("secretariat")) return "role-sec";
-  if (r.includes("evenementiel")) return "role-event";
-  if (r.includes("communication")) return "role-com";
-  return "";
-}
-
-/* ---------- Progress bar ---------- */
+/* ---------- Utilitaires ---------- */
 function renderProgress() {
   const perc = Math.max(
     0,
@@ -91,13 +51,11 @@ function renderProgress() {
 }
 function majIndics(delta) {
   if (!delta) return;
-  // Seul xp compte désormais
   const dxp = delta.xp ?? delta.points ?? 0;
   indicateurs.xp += dxp;
   renderProgress();
 }
 
-/* ---------- Mémo ---------- */
 function clearMemo(msg = "Aucune note pour le moment.") {
   const el = document.getElementById("memo-body");
   el.innerHTML = `<p class="muted">${msg}</p>`;
@@ -109,60 +67,6 @@ function ajouterMemo(label, valeur) {
   line.className = "memo-line";
   line.innerHTML = `<strong>${label} :</strong> ${valeur}`;
   el.appendChild(line);
-}
-
-/* ---------- Affectation des rôles : ancien stockage (legacy 1 prénom) ---------- */
-function showRolesOverlay(show = true) {
-  document.getElementById("roles-overlay").classList.toggle("hidden", !show);
-}
-function loadPlayers() {
-  try {
-    return JSON.parse(localStorage.getItem("aqse_players") || "{}");
-  } catch (e) {
-    return {};
-  }
-}
-function savePlayers(obj) {
-  localStorage.setItem("aqse_players", JSON.stringify(obj || {}));
-}
-
-/* ---------- Index missions par pôle ---------- */
-function buildPoleIndex() {
-  const map = {};
-  POLES_ORDER.forEach((p) => (map[p] = []));
-  missions.forEach((m, i) => {
-    const p = displayRole(m.role);
-    if (map[p]) map[p].push(i);
-  });
-  return map;
-}
-
-/* ---------- Timeline ---------- */
-function renderTimeline() {
-  const wrap = document.getElementById("steps");
-  if (!wrap) return;
-  wrap.innerHTML = "";
-  POLES_ORDER.forEach((roleName, rank) => {
-    const btn = document.createElement("button");
-    btn.className = "step-btn " + roleClass(roleName);
-    btn.textContent = `${rank + 1}. ${roleName}`;
-    btn.dataset.pole = roleName;
-    btn.onclick = () => loadPole(roleName);
-    wrap.appendChild(btn);
-  });
-  setTimelineStates();
-}
-function setTimelineStates() {
-  const buttons = document.querySelectorAll(".step-btn");
-  buttons.forEach((btn) => {
-    btn.disabled = false;
-    btn.classList.remove("locked", "current", "done");
-    const poleOfCurrent =
-      etatDuJeu.missionActuelle != null
-        ? displayRole(missions[etatDuJeu.missionActuelle].role)
-        : null;
-    if (btn.dataset.pole === poleOfCurrent) btn.classList.add("current");
-  });
 }
 
 /* ---------- Timer ---------- */
@@ -199,13 +103,39 @@ function startTimer(seconds, onExpire) {
   etatDuJeu.timer.handle = setInterval(tick, 1000);
 }
 
+/* ---------- Timeline (4 boutons) ---------- */
+function renderTimeline() {
+  const wrap = document.getElementById("steps");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+
+  for (let i = 0; i < 4; i++) {
+    const btn = document.createElement("button");
+    btn.className = "step-btn";
+    btn.textContent = `${i + 1}. Jeu ${i + 1}`;
+    btn.dataset.index = String(i);
+    btn.disabled = i > etatDuJeu.unlockedIndex; // 🔒 séquentiel
+    btn.onclick = () => loadStep(i);
+    wrap.appendChild(btn);
+  }
+  setTimelineStates();
+}
+function setTimelineStates() {
+  const buttons = document.querySelectorAll(".step-btn");
+  buttons.forEach((btn) => {
+    btn.classList.remove("locked", "current", "done");
+    const idx = parseInt(btn.dataset.index, 10);
+    if (idx > etatDuJeu.unlockedIndex) btn.classList.add("locked");
+    if (etatDuJeu.missionActuelle === idx) btn.classList.add("current");
+    if (missionLocked.has(idx)) btn.classList.add("done");
+  });
+}
+
 /* ---------- Affichage mission ---------- */
 function renderMission(index) {
   const m = missions[index];
   const body = document.getElementById("mission-body");
   if (!body) return;
-  const role = displayRole(m.role);
-  const roleCls = roleClass(m.role);
 
   clearMemo();
   stopTimer();
@@ -213,7 +143,7 @@ function renderMission(index) {
   let html = `
     <h3 class="mission-title">${m.titre}</h3>
     <div class="mission-meta">
-      <span class="role-badge ${roleCls}">${role}</span>
+      <span class="role-badge">Jeu ${index + 1}</span>
       ${
         m.scoring?.xp || m.points
           ? `&nbsp;•&nbsp; ${m.scoring?.xp ?? m.points} XP`
@@ -225,8 +155,9 @@ function renderMission(index) {
 
   if (m.timerSec) {
     html += `
-    <div class="timer-wrap"><div id="timer-bar" class="timer-bar"></div></div>
-    <div id="timer-legend" class="timer-legend"></div>`;
+      <div class="timer-wrap"><div id="timer-bar" class="timer-bar"></div></div>
+      <div id="timer-legend" class="timer-legend"></div>
+    `;
   }
 
   if (m.type === "qcm") {
@@ -259,12 +190,10 @@ function renderMission(index) {
         ${
           m.validation === "mj"
             ? `
-          <button class="btn" onclick="validerParMJ(${index}, true)">✅ Valider (MJ)</button>
-          <button class="btn secondary" onclick="validerParMJ(${index}, false)">❌ Refuser (MJ)</button>
-        `
-            : `
-          <button class="btn" onclick="validerTexte(${index})">Valider</button>
-        `
+            <button class="btn" onclick="validerParMJ(${index}, true)">✅ Valider (MJ)</button>
+            <button class="btn secondary" onclick="validerParMJ(${index}, false)">❌ Refuser (MJ)</button>
+          `
+            : `<button class="btn" onclick="validerTexte(${index})">Valider</button>`
         }
       </div>`;
   } else {
@@ -282,41 +211,37 @@ function renderMission(index) {
     });
   }
 
-  if (Array.isArray(m.rolesInvites) && m.rolesInvites.length) {
-    etatDuJeu.seq = { ordre: m.rolesInvites.slice(), pos: 0 };
-    const players = loadPlayers();
-    const show = m.rolesInvites
-      .map((r) => `${r} (${players[r] || "?"})`)
-      .join(" → ");
-    ajouterMemo("Ordre des rôles", show);
-  } else {
-    etatDuJeu.seq = { ordre: [], pos: 0 };
-  }
-
   if (isLocked(index)) {
     disableCurrentInputs();
-    ajouterMemo("Statut", "Mission déjà validée (verrouillée)");
+    ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
   }
 }
 
-/* ---------- Navigation ---------- */
-function loadPole(roleName) {
-  const map = buildPoleIndex();
-  const list = map[roleName] || [];
-  if (list.length === 0) {
-    document.getElementById(
-      "mission-body"
-    ).innerHTML = `<p>Aucune mission définie pour ${roleName}.</p>`;
-    clearMemo();
+/* ---------- Navigation (séquentielle) ---------- */
+function loadStep(index) {
+  // Interdit d'ouvrir un jeu verrouillé
+  if (index > etatDuJeu.unlockedIndex) {
+    showFeedback(false, "Ce jeu est verrouillé. Termine d’abord le précédent.");
     return;
   }
-  loadStep(list[0], roleName);
-}
-function loadStep(index, poleName = null) {
   etatDuJeu.missionActuelle = index;
-  etatDuJeu.poleActuel = poleName || displayRole(missions[index].role);
   setTimelineStates();
   renderMission(index);
+}
+
+function advanceToNext(index) {
+  // Débloque seulement si on vient de valider le jeu actuellement ouvert
+  if (index === etatDuJeu.unlockedIndex) {
+    etatDuJeu.unlockedIndex = Math.min(3, etatDuJeu.unlockedIndex + 1);
+  }
+  setTimelineStates();
+
+  // S’il y a un jeu suivant, on l’ouvre, sinon écran de fin
+  if (index < 3) {
+    loadStep(index + 1);
+  } else {
+    renderEndScreen();
+  }
 }
 
 /* ---------- Utilitaires ---------- */
@@ -330,28 +255,6 @@ function disableCurrentInputs() {
       el.style.opacity = 0.6;
       el.style.cursor = "not-allowed";
     });
-}
-function nextIndexInSamePole(currentIdx) {
-  const pole = displayRole(missions[currentIdx].role);
-  const map = buildPoleIndex();
-  const list = map[pole] || [];
-  const pos = list.indexOf(currentIdx);
-  return pos >= 0 && pos < list.length - 1 ? list[pos + 1] : null;
-}
-function advanceToNextInPole(currentIdx) {
-  const nxt = nextIndexInSamePole(currentIdx);
-  const pole = displayRole(missions[currentIdx].role);
-  if (nxt != null) {
-    loadStep(nxt, pole);
-  } else {
-    showFeedback(
-      true,
-      `✅ Pôle ${pole} terminé. Choisis un autre pôle dans la timeline.`
-    );
-    if (missionLocked.size === missions.length) {
-      renderEndScreen();
-    }
-  }
 }
 
 /* ---------- Feedback ---------- */
@@ -367,7 +270,6 @@ function logResult(index, ok, answerText) {
   const m = missions[index];
   results.push({
     id: m.id,
-    role: displayRole(m.role),
     titre: m.titre,
     type: m.type,
     ok: !!ok,
@@ -378,23 +280,24 @@ function logResult(index, ok, answerText) {
 function rewardXpOf(m) {
   return m?.scoring?.xp ?? m.points ?? 0;
 }
-function applySuccess(m) {
+function applySuccess(index, m) {
   const xp = rewardXpOf(m);
   majIndics({ xp });
-  if (!etatDuJeu.etapesTerminees.includes(etatDuJeu.missionActuelle)) {
-    etatDuJeu.etapesTerminees.push(etatDuJeu.missionActuelle);
+  if (!etatDuJeu.etapesTerminees.includes(index)) {
+    etatDuJeu.etapesTerminees.push(index);
   }
   disableCurrentInputs();
   showFeedback(true, `Réponse validée ! +${xp} XP`);
+  advanceToNext(index);
 }
 function applyFailure(msg = "Réponse incorrecte.") {
   disableCurrentInputs();
   showFeedback(false, msg);
 }
 
+/* ---------- Validations ---------- */
 function validerQCM(index) {
-  if (isLocked(index))
-    return showFeedback(false, "Cette mission a déjà été validée.");
+  if (isLocked(index)) return showFeedback(false, "Ce jeu a déjà été validé.");
   const m = missions[index];
   const checkedIdx = Array.from(
     document.querySelectorAll('input[name="opt"]:checked')
@@ -411,14 +314,11 @@ function validerQCM(index) {
 
   lockMission(index);
   logResult(index, ok, answerText);
-  ok ? applySuccess(m) : applyFailure("Mauvaise réponse ou incomplète.");
-
-  advanceToNextInPole(index);
+  ok ? applySuccess(index, m) : applyFailure("Mauvaise réponse ou incomplète.");
 }
 
 function validerChoix(index) {
-  if (isLocked(index))
-    return showFeedback(false, "Cette mission a déjà été validée.");
+  if (isLocked(index)) return showFeedback(false, "Ce jeu a déjà été validé.");
   const m = missions[index];
   const choisi = parseInt(
     document.querySelector('input[name="opt"]:checked')?.value ?? "-1",
@@ -430,14 +330,11 @@ function validerChoix(index) {
   lockMission(index);
   const ok = choisi === m.bonneReponse;
   logResult(index, ok, answerText);
-  ok ? applySuccess(m) : applyFailure("Mauvais choix.");
-
-  advanceToNextInPole(index);
+  ok ? applySuccess(index, m) : applyFailure("Mauvais choix.");
 }
 
 function validerTexte(index) {
-  if (isLocked(index))
-    return showFeedback(false, "Cette mission a déjà été validée.");
+  if (isLocked(index)) return showFeedback(false, "Ce jeu a déjà été validé.");
   const m = missions[index];
   const v = document.getElementById("reponse-texte")?.value.trim() || "";
   if (!v) return applyFailure("Réponse vide.");
@@ -445,13 +342,11 @@ function validerTexte(index) {
   ajouterMemo("Réponse", v);
   lockMission(index);
   logResult(index, true, v);
-  applySuccess(m);
-  advanceToNextInPole(index);
+  applySuccess(index, m);
 }
 
 function validerParMJ(index, accepte) {
-  if (isLocked(index))
-    return showFeedback(false, "Cette mission a déjà été validée.");
+  if (isLocked(index)) return showFeedback(false, "Ce jeu a déjà été validé.");
   const m = missions[index];
   const v = document.getElementById("reponse-texte")?.value.trim() || "";
   if (v) ajouterMemo("Réponse", v);
@@ -459,12 +354,10 @@ function validerParMJ(index, accepte) {
   lockMission(index);
   logResult(index, !!accepte, v);
   if (accepte) {
-    applySuccess(m);
+    applySuccess(index, m);
   } else {
     applyFailure("Refusé par le MJ.");
   }
-
-  advanceToNextInPole(index);
 }
 
 /* ---------- Bilan ---------- */
@@ -477,9 +370,9 @@ function renderEndScreen() {
 
   end.style.display = "block";
   end.innerHTML = `
-    <h2>🎉 Bilan de mandat</h2>
+    <h2>🎉 Bilan</h2>
     <p><strong>Progression :</strong> ${perc}% (${indicateurs.xp} XP / ${XP_MAX} XP)</p>
-    <p><strong>Missions validées :</strong> ${okCount}/${total}</p>
+    <p><strong>Jeux validés :</strong> ${okCount}/${total}</p>
     <div class="hero-ctas" style="margin-top:10px">
       <button class="btn" onclick="resetGame()">🔁 Rejouer</button>
     </div>
@@ -488,35 +381,27 @@ function renderEndScreen() {
 
 /* ---------- Reset (Rejouer) ---------- */
 function resetGame() {
-  // 1) Demande si on veut aussi réaffecter les rôles
   const alsoResetRoles = window.confirm(
     "Souhaites-tu aussi réaffecter les rôles ?\n\nOK = Oui, on vide le formulaire et on le re-remplit\nAnnuler = Non, on garde les rôles actuels"
   );
-
-  // 2) Si oui, on efface les rôles (legacy + multi) et on rouvrira l’overlay
   if (alsoResetRoles) {
     try {
-      localStorage.removeItem("aqse_players"); // 1er prénom par pôle (legacy)
-      localStorage.removeItem("aqse_players_multi"); // liste complète par pôle
-    } catch (e) {
-      /* ignore */
-    }
+      localStorage.removeItem("aqse_players");
+      localStorage.removeItem("aqse_players_multi");
+    } catch (e) {}
   }
 
-  // 3) Reset de l’état du jeu
   etatDuJeu = {
     etapesTerminees: [],
     missionActuelle: null,
-    poleActuel: null,
     timer: { handle: null, total: 0, left: 0, expired: false },
-    seq: { ordre: [], pos: 0 },
+    unlockedIndex: 0,
   };
   stopTimer();
   missionLocked.clear();
   results.length = 0;
   indicateurs.xp = 0;
 
-  // 4) UI jeu
   renderProgress();
   renderTimeline();
   clearMemo();
@@ -527,27 +412,21 @@ function resetGame() {
   }
   document.getElementById(
     "mission-body"
-  ).innerHTML = `<p>Choisis un pôle pour commencer le jeu.</p>`;
+  ).innerHTML = `<p>Commence par le Jeu 1.</p>`;
 
-  // 5) Si on a choisi de réaffecter les rôles : on reconstruit et on ouvre l’overlay
   if (alsoResetRoles) {
-    setupRolesUI(); // régénère le formulaire à partir d’un storage vide
-    showRolesOverlay(true); // affiche l’overlay
+    setupRolesUI?.();
+    if (typeof showRolesOverlay === "function") showRolesOverlay(true);
   } else {
-    // Sinon, on s’assure que l’overlay reste fermé
-    showRolesOverlay(false);
+    if (typeof showRolesOverlay === "function") showRolesOverlay(false);
   }
 }
 
 /* =========================================================
-   Formulaire multi-personnes par pôle (overlay)
-   - UI générée dynamiquement dans #roles-form
-   - Stockage:
-       * aqse_players        : { Pole: "PremierPrenom", ... }
-       * aqse_players_multi  : { Pole: ["Prenom1","Prenom2",...], ... }
-   - Compat: loadPlayers() continue de retourner un objet { Pole: "PremierPrenom" }
+   Overlay rôles — multi personnes (optionnel, si tu l’utilises)
+   -> Si tu n’utilises pas l’overlay des rôles, tu peux supprimer
+      toute la section ci-dessous + l’appel setupRolesUI().
    ========================================================= */
-
 const ROLES_KEYS = [
   "Présidence",
   "Trésorerie",
@@ -556,7 +435,12 @@ const ROLES_KEYS = [
   "Communication",
 ];
 
-/* ---------- Storage helpers ---------- */
+function showRolesOverlay(show = true) {
+  const ov = document.getElementById("roles-overlay");
+  if (ov) ov.classList.toggle("hidden", !show);
+}
+
+/* --- stockage --- */
 function loadPlayersLegacy() {
   try {
     return JSON.parse(localStorage.getItem("aqse_players") || "{}");
@@ -577,13 +461,9 @@ function loadPlayersMulti() {
 function savePlayersMulti(all) {
   localStorage.setItem("aqse_players_multi", JSON.stringify(all || {}));
 }
-// exposé si besoin ailleurs
 window.loadPlayersMulti = loadPlayersMulti;
 
-/* ---------- État en mémoire pour l'overlay ---------- */
 let playersMultiState = {};
-
-/* Migration / upgrade vers multi si besoin */
 function upgradePlayersStorage() {
   const legacy = loadPlayersLegacy();
   const multi = loadPlayersMulti();
@@ -597,7 +477,6 @@ function upgradePlayersStorage() {
     }, {});
     return;
   }
-  // sinon on crée depuis legacy (un prénom → tableau)
   playersMultiState = ROLES_KEYS.reduce((acc, role) => {
     const v = (legacy[role] || "").trim();
     acc[role] = v ? [v] : [];
@@ -606,7 +485,7 @@ function upgradePlayersStorage() {
   savePlayersMulti(playersMultiState);
 }
 
-/* ---------- Rendu UI overlay rôles ---------- */
+/* --- UI overlay --- */
 function setupRolesUI() {
   upgradePlayersStorage();
 
@@ -630,17 +509,16 @@ function setupRolesUI() {
   form.appendChild(ctas);
 
   form.addEventListener("submit", onSubmitRolesForm);
-  form.querySelector("#roles-reset").addEventListener("click", () => {
+  const resetBtn = form.querySelector("#roles-reset");
+  resetBtn.addEventListener("click", () => {
     playersMultiState = ROLES_KEYS.reduce((acc, r) => ((acc[r] = []), acc), {});
     savePlayersMulti(playersMultiState);
-    savePlayersLegacy({}); // vide aussi legacy
-    setupRolesUI(); // re-render
+    savePlayersLegacy({});
+    setupRolesUI();
   });
 
-  // premier rendu des listes
   ROLES_KEYS.forEach((role) => renderPersonList(role));
 
-  // ouvrir si au moins un pôle est vide
   const hasAll = ROLES_KEYS.every(
     (r) => playersMultiState[r] && playersMultiState[r].length > 0
   );
@@ -735,7 +613,6 @@ function addPerson(role, name) {
     arr.push(clean);
     playersMultiState[role] = arr;
     savePlayersMulti(playersMultiState);
-    // MAJ legacy (1er prénom par pôle)
     const legacy = ROLES_KEYS.reduce((acc, r) => {
       acc[r] =
         playersMultiState[r] && playersMultiState[r][0]
@@ -753,7 +630,6 @@ function removePerson(role, idx) {
     arr.splice(idx, 1);
     playersMultiState[role] = arr;
     savePlayersMulti(playersMultiState);
-    // MAJ legacy
     const legacy = ROLES_KEYS.reduce((acc, r) => {
       acc[r] =
         playersMultiState[r] && playersMultiState[r][0]
@@ -777,7 +653,7 @@ function onSubmitRolesForm(e) {
   showRolesOverlay(false);
 }
 
-/* Utils divers pour l’overlay */
+/* utils overlay */
 function slug(s) {
   return s
     .normalize("NFD")
@@ -795,17 +671,29 @@ function escapeHtml(str) {
   );
 }
 
-/* ---------- Init ---------- */
+/* =========================================================
+   INIT
+========================================================= */
 window.onload = () => {
+  // total XP & UI
   computeXpMax();
   renderProgress();
 
-  // Nouveau formulaire multi‑personnes
-  setupRolesUI();
+  // overlay rôles (facultatif)
+  setupRolesUI?.(); // si l’overlay existe dans ton HTML, il sera initialisé
 
+  // timeline 4 jeux et écran de départ
   renderTimeline();
   clearMemo();
+  const end = document.getElementById("end-screen");
+  if (end) {
+    end.style.display = "none";
+    end.innerHTML = "";
+  }
+  const body = document.getElementById("mission-body");
+  if (body) body.innerHTML = `<p>Commence par le Jeu 1.</p>`;
 
-  // bouton rejouer (header)
-  document.getElementById("btn-reset").onclick = resetGame;
+  // bouton rejouer
+  const btnReset = document.getElementById("btn-reset");
+  if (btnReset) btnReset.onclick = resetGame;
 };
