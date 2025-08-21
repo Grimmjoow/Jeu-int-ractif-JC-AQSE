@@ -1,15 +1,25 @@
-// 4 jeux séquentiels — 25 XP chacun (total 100)
+/* =========================
+   Missions — JC AQSE (4 jeux)
+   ========================= */
+
 const missions = [
+  /* --------------------------------------------------------
+     JEU 1 — Conférence pro (brainstorm + tagging)
+     -------------------------------------------------------- */
   {
-    // Jeu 1 : Brainstorm + Étiquetage (25 XP)
     id: "jeu1",
     role: "Jeu",
     type: "brainstorm",
-    titre: "Jeu 1 – Brainstorm & Étiquetage",
+    titre: "Organiser une conférence à destination des professionnels",
     question:
-      "Ajoute un maximum d’idées, sélectionne-en 5 puis attribue un pôle à chacune.",
+      "Quelles sont les idées qui vous viennent pour organiser cet évènement ?",
+    // Timer demandé : 6 minutes
+    timerSec: 360,
+    // Le MJ valide (il peut accepter/refuser les idées sup)
+    validation: "mj",
+    // Paramètres UI du brainstorm
     config: {
-      minIdeas: 5, // au moins 5 idées pour avancer
+      minIdeas: 6, // au moins 6 idées saisies
       maxSelected: 5, // on en retient 5
       roles: [
         "Présidence",
@@ -19,102 +29,92 @@ const missions = [
         "Communication",
       ],
     },
-    scoring: { xp: 25 },
-    timerSec: 0,
+    scoring: { xp: 20 },
   },
+
+  /* --------------------------------------------------------
+     JEU 2 — Objectif CA & Prospection (6 étapes)
+     -------------------------------------------------------- */
   {
     id: "jeu2",
     role: "Jeu",
-    type: "jeu2", // <- nouveau type
-    titre: "Jeu 2 – Série de 6 questions par pôles",
+    type: "jeu2",
+    titre: "Fixer le CA & organiser la prospection",
     question:
-      "Répondez aux 6 étapes : textes par pôles, QCM communs, brainstorming, puis budget & justification.",
-    // Contenu minimal de QCM (modifiable)
+      "Définissez l’objectif de CA du mandat, répartissez les responsabilités et cadrez la prospection.",
+    // QCM utilisés par les étapes 3 et 4
     qcm: [
+      // Étape 3 — QCM commun #1 : fréquence de prospection
       {
-        titre: "Étape 3 – QCM commun #1",
-        question: "Choisissez la meilleure option.",
-        options: ["Option A", "Option B", "Option C"],
-        bonneReponse: 1, // index (ici 'Option B')
+        titre: "Fréquence de prospection",
+        question:
+          "À quelle fréquence faut-il prospecter pour atteindre l’objectif de CA ?",
+        options: [
+          "1 fois / semaine",
+          "1 fois / mois",
+          "3 fois / semaine – créneaux de 2h",
+          "3 fois / semaine – créneaux de 15 min",
+          "3 fois / mois",
+          "Tous les jours 15 min (hors week-ends)",
+        ],
+        // Bonne réponse retenue (ajuste si besoin)
+        bonneReponse: 2,
       },
+      // Étape 4 — QCM commun #2 : canal le plus pertinent au démarrage
       {
-        titre: "Étape 4 – QCM commun #2",
-        question: "Choisissez la seule réponse correcte.",
-        options: ["Réponse 1", "Réponse 2", "Réponse 3"],
-        bonneReponse: 2, // 'Réponse 3'
+        titre: "Canal prioritaire pour démarrer",
+        question:
+          "Quel canal est le plus pertinent pour lancer la prospection B2B ?",
+        options: [
+          "Affichage sur le campus",
+          "Porte-à-porte en entreprise sans rdv",
+          "LinkedIn + Email ciblé",
+          "Stories Instagram",
+        ],
+        bonneReponse: 2,
       },
     ],
-    // Rôles affichés pour guider la saisie
-    roles: ["Présidence", "Trésorerie", "Secrétariat"],
+    // (Les autres étapes sont en réponses libres / brainstorm / budget dans jeu.js)
+    scoring: { xp: 30 },
+  },
+
+  /* --------------------------------------------------------
+     JEU 3 — Cohésion d’équipe (4 étapes)
+     -------------------------------------------------------- */
+  {
+    id: "jeu3",
+    role: "Jeu",
+    type: "jeu3",
+    titre: "Cohésion d’équipe sur l’année",
+    question:
+      "Construisez un plan de cohésion viable (Erasmus, stages…), cadencez les réunions et justifiez vos choix.",
+    // (Les contenus d’étapes sont gérés dans jeu.js ; QCM simple étape 3)
     scoring: { xp: 25 },
   },
-  {
-    id: "jeu3_etape1",
-    role: "Tous",
-    type: "texte",
-    titre: "Idées pour la cohésion",
-    question:
-      "Quelles sont les choses à faire pour maintenir la cohésion d’équipe toute l’année (Erasmus, stages, etc.) ?",
-    validation: "mj",
-    scoring: { xp: 20 },
-  },
-  {
-    id: "jeu3_etape2",
-    role: "Tous",
-    type: "choix",
-    titre: "Fréquence des réunions",
-    question:
-      "Quelle fréquence de réunions est idéale pour garder la cohésion ?",
-    options: [
-      "Une fois par mois",
-      "Une fois toutes les deux semaines",
-      "Une fois par semaine",
-      "Tous les jours",
-    ],
-    bonneReponse: 2,
-    scoring: { xp: 20 },
-  },
-  {
-    id: "jeu3_etape3",
-    role: "Tous",
-    type: "brainstorm",
-    titre: "Cohésion avant fin décembre",
-    question:
-      "Proposez des actions concrètes pour renforcer la cohésion avant les départs.",
-    validation: "mj",
-    scoring: { xp: 30 },
-  },
-  {
-    id: "jeu3_etape4",
-    role: "Tous",
-    type: "tagging",
-    titre: "Répartition des responsabilités",
-    question:
-      "Attribuez chaque idée proposée au pôle concerné (Présidence, Trésorerie, Secrétariat, Événementiel, Communication).",
-    validation: "mj",
-    scoring: { xp: 30 },
-  },
+
+  /* --------------------------------------------------------
+     JEU 4 — Partenariats & Prospection (7 étapes)
+     -------------------------------------------------------- */
   {
     id: "jeu4",
     role: "Jeu",
     type: "jeu4",
-    titre: "Jeu 4 – Partenariats & Prospection",
+    titre: "Partenariats & Prospection",
     question:
-      "Identifiez/renouvelez les partenaires, ciblez des secteurs et organisez le budget et les actions.",
-    // Données utiles au jeu (listes/options)
+      "Identifiez/renouvelez les partenaires, ciblez des secteurs, puis organisez budget et actions.",
     data: {
-      // Partenaires actuels connus (à multi-sélection dans l'étape 2)
+      // Étape 2 — QCM multi : partenaires actuels (doivent tous être cochés)
       partenairesActuels: ["Préfas Incendie", "BNP Paribas", "PROPULSE", "JPM"],
-      // Entreprise en période d’essai 1 an
+      // Étape 3a — Entreprise en période d’essai 1 an
       partenaireEssai: "PWC",
-      // Où trouver l’info / quand renouveler
+      // Étape 3b — Renouvellement : quand / où / durées possibles
       renouvellement: {
         bonnePeriode: "Janvier",
         bonDossier: "Stratégie et pilotage",
-        durees: ["1 an", "2 ans", "3 ans", "5 ans"], // items d’options
-        bonneDurees: ["1 an", "2 ans"], // certaines conventions durent 2 ans
+        durees: ["1 an", "2 ans", "3 ans", "5 ans"],
+        bonneDurees: ["1 an", "2 ans"],
       },
-      // Secteurs/cibles pertinents (multi QCM)
+      // Étape 5 — Cibles/secteurs pertinents (multi)
       secteursPertinents: [
         "PME",
         "Industries",
@@ -123,7 +123,7 @@ const missions = [
         "Collectivités",
         "Ecoles/Universités",
       ],
-      // Pôles pour le budget
+      // Étape 6 — Pôles pour le budget partenaires
       roles: [
         "Présidence",
         "Trésorerie",

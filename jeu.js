@@ -1,6 +1,6 @@
-/************  Jeu — 4 jeux séquentiels (barre % par XP)  ************/
+/************  Jeu — 4 jeux libres (barre % par XP)  ************/
 
-// On ne s’appuie plus sur les pôles pour la timeline : 4 jeux fixes.
+// On n’utilise pas les pôles pour la timeline : 4 jeux fixes.
 const POLES_ORDER = ["Jeu 1", "Jeu 2", "Jeu 3", "Jeu 4"];
 
 // Indicateur unique : XP cumulé
@@ -22,14 +22,12 @@ let etatDuJeu = {
   etapesTerminees: [],
   missionActuelle: null,
   timer: { handle: null, total: 0, left: 0, expired: false },
-  // Séquencement strict : 0 = Jeu 1 débloqué uniquement au début
-  unlockedIndex: 0,
 };
 
 // Journal simple si besoin d’un bilan (non exporté)
 const results = [];
 
-// Verrouillage : une seule validation par mission
+// Verrouillage : une seule validation par jeu
 const missionLocked = new Set();
 function isLocked(idx) {
   return missionLocked.has(idx);
@@ -58,10 +56,11 @@ function majIndics(delta) {
 
 function clearMemo(msg = "Aucune note pour le moment.") {
   const el = document.getElementById("memo-body");
-  el.innerHTML = `<p class="muted">${msg}</p>`;
+  if (el) el.innerHTML = `<p class="muted">${msg}</p>`;
 }
 function ajouterMemo(label, valeur) {
   const el = document.getElementById("memo-body");
+  if (!el) return;
   if (el.querySelector("p")) el.innerHTML = "";
   const line = document.createElement("div");
   line.className = "memo-line";
@@ -114,7 +113,8 @@ function renderTimeline() {
     btn.className = "step-btn";
     btn.textContent = `${i + 1}. Jeu ${i + 1}`;
     btn.dataset.index = String(i);
-    btn.disabled = i > etatDuJeu.unlockedIndex; // 🔒 séquentiel
+    // Jeux accessibles dès le départ ; se verrouillent uniquement une fois terminés
+    btn.disabled = isLocked(i);
     btn.onclick = () => loadStep(i);
     wrap.appendChild(btn);
   }
@@ -125,13 +125,12 @@ function setTimelineStates() {
   buttons.forEach((btn) => {
     btn.classList.remove("locked", "current", "done");
     const idx = parseInt(btn.dataset.index, 10);
-    if (idx > etatDuJeu.unlockedIndex) btn.classList.add("locked");
+    if (isLocked(idx)) btn.classList.add("locked", "done");
     if (etatDuJeu.missionActuelle === idx) btn.classList.add("current");
-    if (missionLocked.has(idx)) btn.classList.add("done");
   });
 }
 
-/* ---------- Affichage mission ---------- */
+/* ---------- Affichage mission (tête, timers et délégation) ---------- */
 function renderMission(index) {
   const m = missions[index];
   const body = document.getElementById("mission-body");
@@ -150,10 +149,9 @@ function renderMission(index) {
           : ""
       }
     </div>
-    <p>${m.question || ""}</p>
+    ${m.question ? `<p>${m.question}</p>` : ""}
   `;
 
-  // Chrono éventuel : on prépare l'UI du timer
   if (m.timerSec) {
     html += `
       <div class="timer-wrap"><div id="timer-bar" class="timer-bar"></div></div>
@@ -161,7 +159,64 @@ function renderMission(index) {
     `;
   }
 
-  /* ---------- Types natifs (qcm / choix / texte) ---------- */
+  body.innerHTML = html;
+
+  // Délégation par type
+  if (m.type === "qcm" || m.type === "choix" || m.type === "texte") {
+    renderNativeMissionUI(index, m); // utilise validerQCM / validerChoix / validerTexte
+  } else if (m.type === "brainstorm") {
+    if (isLocked(index)) {
+      disableCurrentInputs();
+      ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
+      return;
+    }
+    renderBrainstorm(index); // doit exister dans ton fichier (Jeu 1)
+  } else if (m.type === "jeu2") {
+    if (isLocked(index)) {
+      disableCurrentInputs();
+      ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
+      return;
+    }
+    renderJeu2(index); // doit exister dans ton fichier (Jeu 2)
+  } else if (m.type === "jeu3") {
+    if (isLocked(index)) {
+      disableCurrentInputs();
+      ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
+      return;
+    }
+    if (typeof renderJeu3 === "function") renderJeu3(index);
+    else body.innerHTML += `<div class="end-screen">Jeu 3 à venir.</div>`;
+  } else if (m.type === "jeu4") {
+    if (isLocked(index)) {
+      disableCurrentInputs();
+      ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
+      return;
+    }
+    if (typeof renderJeu4 === "function") renderJeu4(index);
+    else body.innerHTML += `<div class="end-screen">Jeu 4 à venir.</div>`;
+  } else {
+    body.innerHTML += `<div class="end-screen">Type de mission à venir.</div>`;
+  }
+
+  if (m.timerSec) {
+    startTimer(m.timerSec, () => {
+      showFeedback(false, "⏱️ Temps écoulé.");
+      if (m.penalty?.xp) majIndics({ xp: m.penalty.xp });
+      ajouterMemo("Timer", "Temps écoulé");
+    });
+  }
+
+  if (isLocked(index)) {
+    disableCurrentInputs();
+    ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
+  }
+}
+
+/* Helpers UI pour qcm/choix/texte */
+function renderNativeMissionUI(index, m) {
+  const body = document.getElementById("mission-body");
+  let html = body.innerHTML;
+
   if (m.type === "qcm") {
     (m.options || []).forEach((opt, i) => {
       html += `
@@ -191,144 +246,25 @@ function renderMission(index) {
         }</span>
         ${
           m.validation === "mj"
-            ? `
-            <button class="btn" onclick="validerParMJ(${index}, true)">✅ Valider (MJ)</button>
-            <button class="btn secondary" onclick="validerParMJ(${index}, false)">❌ Refuser (MJ)</button>
-          `
+            ? `<button class="btn" onclick="validerParMJ(${index}, true)">✅ Valider (MJ)</button>
+             <button class="btn secondary" onclick="validerParMJ(${index}, false)">❌ Refuser (MJ)</button>`
             : `<button class="btn" onclick="validerTexte(${index})">Valider</button>`
         }
       </div>`;
-
-    /* ---------- Types personnalisés ---------- */
-  } else if (m.type === "brainstorm") {
-    // Jeu 1 — Brainstorm (2 étapes)
-    body.innerHTML = html;
-    if (m.timerSec) {
-      startTimer(m.timerSec, () => {
-        showFeedback(false, "⏱️ Temps écoulé.");
-        if (m.penalty?.xp) majIndics({ xp: m.penalty.xp });
-        ajouterMemo("Timer", "Temps écoulé");
-      });
-    }
-    if (isLocked(index)) {
-      disableCurrentInputs();
-      ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
-      return;
-    }
-    renderBrainstorm(index); // <-- fournie plus haut
-    document.getElementById("feedback").textContent = "";
-    return;
-  } else if (m.type === "jeu2") {
-    // Jeu 2 — Série de 6 étapes (textes/QCM/brainstorm/budget)
-    body.innerHTML = html;
-    if (m.timerSec) {
-      startTimer(m.timerSec, () => {
-        showFeedback(false, "⏱️ Temps écoulé.");
-        if (m.penalty?.xp) majIndics({ xp: m.penalty.xp });
-        ajouterMemo("Timer", "Temps écoulé");
-      });
-    }
-    if (isLocked(index)) {
-      disableCurrentInputs();
-      ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
-      return;
-    }
-    renderJeu2(index); // <-- ajoute/colle la fonction fournie
-    document.getElementById("feedback").textContent = "";
-    return;
-  } else if (m.type === "jeu3") {
-    // Placeholder Jeu 3 — tu brancheras renderJeu3 quand prêt
-    body.innerHTML = html;
-    if (m.timerSec) {
-      startTimer(m.timerSec, () => {
-        showFeedback(false, "⏱️ Temps écoulé.");
-        if (m.penalty?.xp) majIndics({ xp: m.penalty.xp });
-        ajouterMemo("Timer", "Temps écoulé");
-      });
-    }
-    if (isLocked(index)) {
-      disableCurrentInputs();
-      ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
-      return;
-    }
-    if (typeof renderJeu3 === "function") {
-      renderJeu3(index);
-    } else {
-      document.getElementById("mission-body").innerHTML += `
-        <div class="end-screen">Le contenu du Jeu 3 sera ajouté prochainement.</div>`;
-    }
-    document.getElementById("feedback").textContent = "";
-    return;
-  } else if (m.type === "jeu4") {
-    // Placeholder Jeu 4 — tu brancheras renderJeu4 quand prêt
-    body.innerHTML = html;
-    if (m.timerSec) {
-      startTimer(m.timerSec, () => {
-        showFeedback(false, "⏱️ Temps écoulé.");
-        if (m.penalty?.xp) majIndics({ xp: m.penalty.xp });
-        ajouterMemo("Timer", "Temps écoulé");
-      });
-    }
-    if (isLocked(index)) {
-      disableCurrentInputs();
-      ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
-      return;
-    }
-    if (typeof renderJeu4 === "function") {
-      renderJeu4(index);
-    } else {
-      document.getElementById("mission-body").innerHTML += `
-        <div class="end-screen">Le contenu du Jeu 4 sera ajouté prochainement.</div>`;
-    }
-    document.getElementById("feedback").textContent = "";
-    return;
-  } else {
-    html += `<div class="end-screen">Type de mission à venir.</div>`;
   }
 
-  // Rendu final pour les types natifs (qcm/choix/texte)
   body.innerHTML = html;
-  document.getElementById("feedback").textContent = "";
-
-  if (m.timerSec) {
-    startTimer(m.timerSec, () => {
-      showFeedback(false, "⏱️ Temps écoulé.");
-      if (m.penalty?.xp) majIndics({ xp: m.penalty.xp });
-      ajouterMemo("Timer", "Temps écoulé");
-    });
-  }
-
-  if (isLocked(index)) {
-    disableCurrentInputs();
-    ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
-  }
 }
 
-/* ---------- Navigation (séquentielle) ---------- */
+/* ---------- Navigation ---------- */
 function loadStep(index) {
-  // Interdit d'ouvrir un jeu verrouillé
-  if (index > etatDuJeu.unlockedIndex) {
-    showFeedback(false, "Ce jeu est verrouillé. Termine d’abord le précédent.");
+  if (isLocked(index)) {
+    showFeedback(false, "Ce jeu est déjà terminé.");
     return;
   }
   etatDuJeu.missionActuelle = index;
   setTimelineStates();
   renderMission(index);
-}
-
-function advanceToNext(index) {
-  // Débloque seulement si on vient de valider le jeu actuellement ouvert
-  if (index === etatDuJeu.unlockedIndex) {
-    etatDuJeu.unlockedIndex = Math.min(3, etatDuJeu.unlockedIndex + 1);
-  }
-  setTimelineStates();
-
-  // S’il y a un jeu suivant, on l’ouvre, sinon écran de fin
-  if (index < 3) {
-    loadStep(index + 1);
-  } else {
-    renderEndScreen();
-  }
 }
 
 /* ---------- Utilitaires ---------- */
@@ -360,7 +296,7 @@ function logResult(index, ok, answerText) {
     titre: m.titre,
     type: m.type,
     ok: !!ok,
-    answer: (answerText || "").slice(0, 500),
+    answer: (answerText || "").slice(0, 1000),
     ts: new Date().toISOString(),
   });
 }
@@ -374,15 +310,18 @@ function applySuccess(index, m) {
     etatDuJeu.etapesTerminees.push(index);
   }
   disableCurrentInputs();
-  showFeedback(true, `Réponse validée ! +${xp} XP`);
-  advanceToNext(index);
+  showFeedback(true, `Jeu validé ! +${xp} XP`);
+  // verrouille définitivement ce jeu
+  lockMission(index);
+  setTimelineStates();
+  // si tous les jeux sont verrouillés, on affiche le bilan
+  if (missionLocked.size === 4) renderEndScreen();
 }
 function applyFailure(msg = "Réponse incorrecte.") {
   disableCurrentInputs();
   showFeedback(false, msg);
 }
 
-/* ---------- Validations ---------- */
 function validerQCM(index) {
   if (isLocked(index)) return showFeedback(false, "Ce jeu a déjà été validé.");
   const m = missions[index];
@@ -399,7 +338,6 @@ function validerQCM(index) {
     bonnes.every((r) => checkedIdx.includes(r)) &&
     checkedIdx.length === bonnes.length;
 
-  lockMission(index);
   logResult(index, ok, answerText);
   ok ? applySuccess(index, m) : applyFailure("Mauvaise réponse ou incomplète.");
 }
@@ -414,7 +352,6 @@ function validerChoix(index) {
   const answerText = m.options?.[choisi] ?? "—";
   ajouterMemo("Choix", answerText);
 
-  lockMission(index);
   const ok = choisi === m.bonneReponse;
   logResult(index, ok, answerText);
   ok ? applySuccess(index, m) : applyFailure("Mauvais choix.");
@@ -427,7 +364,6 @@ function validerTexte(index) {
   if (!v) return applyFailure("Réponse vide.");
 
   ajouterMemo("Réponse", v);
-  lockMission(index);
   logResult(index, true, v);
   applySuccess(index, m);
 }
@@ -438,7 +374,6 @@ function validerParMJ(index, accepte) {
   const v = document.getElementById("reponse-texte")?.value.trim() || "";
   if (v) ajouterMemo("Réponse", v);
 
-  lockMission(index);
   logResult(index, !!accepte, v);
   if (accepte) {
     applySuccess(index, m);
@@ -482,7 +417,6 @@ function resetGame() {
     etapesTerminees: [],
     missionActuelle: null,
     timer: { handle: null, total: 0, left: 0, expired: false },
-    unlockedIndex: 0,
   };
   stopTimer();
   missionLocked.clear();
@@ -499,263 +433,14 @@ function resetGame() {
   }
   document.getElementById(
     "mission-body"
-  ).innerHTML = `<p>Commence par le Jeu 1.</p>`;
+  ).innerHTML = `<p>Choisis un jeu pour commencer.</p>`;
 
   if (alsoResetRoles) {
-    setupRolesUI?.();
+    if (typeof setupRolesUI === "function") setupRolesUI();
     if (typeof showRolesOverlay === "function") showRolesOverlay(true);
   } else {
     if (typeof showRolesOverlay === "function") showRolesOverlay(false);
   }
-}
-
-/* =========================================================
-   Overlay rôles — multi personnes (optionnel, si tu l’utilises)
-   -> Si tu n’utilises pas l’overlay des rôles, tu peux supprimer
-      toute la section ci-dessous + l’appel setupRolesUI().
-   ========================================================= */
-const ROLES_KEYS = [
-  "Présidence",
-  "Trésorerie",
-  "Secrétariat",
-  "Événementiel",
-  "Communication",
-];
-
-function showRolesOverlay(show = true) {
-  const ov = document.getElementById("roles-overlay");
-  if (ov) ov.classList.toggle("hidden", !show);
-}
-
-/* --- stockage --- */
-function loadPlayersLegacy() {
-  try {
-    return JSON.parse(localStorage.getItem("aqse_players") || "{}");
-  } catch (e) {
-    return {};
-  }
-}
-function savePlayersLegacy(firsts) {
-  localStorage.setItem("aqse_players", JSON.stringify(firsts || {}));
-}
-function loadPlayersMulti() {
-  try {
-    return JSON.parse(localStorage.getItem("aqse_players_multi") || "{}");
-  } catch (e) {
-    return {};
-  }
-}
-function savePlayersMulti(all) {
-  localStorage.setItem("aqse_players_multi", JSON.stringify(all || {}));
-}
-window.loadPlayersMulti = loadPlayersMulti;
-
-let playersMultiState = {};
-function upgradePlayersStorage() {
-  const legacy = loadPlayersLegacy();
-  const multi = loadPlayersMulti();
-  const hasMulti = Object.keys(multi).some(
-    (k) => Array.isArray(multi[k]) && multi[k].length
-  );
-  if (hasMulti) {
-    playersMultiState = ROLES_KEYS.reduce((acc, role) => {
-      acc[role] = Array.isArray(multi[role]) ? multi[role].slice() : [];
-      return acc;
-    }, {});
-    return;
-  }
-  playersMultiState = ROLES_KEYS.reduce((acc, role) => {
-    const v = (legacy[role] || "").trim();
-    acc[role] = v ? [v] : [];
-    return acc;
-  }, {});
-  savePlayersMulti(playersMultiState);
-}
-
-/* --- UI overlay --- */
-function setupRolesUI() {
-  upgradePlayersStorage();
-
-  const form = document.getElementById("roles-form");
-  if (!form) {
-    console.warn("[roles] #roles-form introuvable.");
-    return;
-  }
-  form.innerHTML = "";
-
-  ROLES_KEYS.forEach((role) => {
-    form.appendChild(buildRoleBlock(role));
-  });
-
-  const ctas = document.createElement("div");
-  ctas.className = "hero-ctas";
-  ctas.innerHTML = `
-    <button type="submit" class="btn">Commencer</button>
-    <button type="button" class="btn secondary" id="roles-reset">Effacer</button>
-  `;
-  form.appendChild(ctas);
-
-  form.addEventListener("submit", onSubmitRolesForm);
-  const resetBtn = form.querySelector("#roles-reset");
-  resetBtn.addEventListener("click", () => {
-    playersMultiState = ROLES_KEYS.reduce((acc, r) => ((acc[r] = []), acc), {});
-    savePlayersMulti(playersMultiState);
-    savePlayersLegacy({});
-    setupRolesUI();
-  });
-
-  ROLES_KEYS.forEach((role) => renderPersonList(role));
-
-  const hasAll = ROLES_KEYS.every(
-    (r) => playersMultiState[r] && playersMultiState[r].length > 0
-  );
-  showRolesOverlay(!hasAll);
-}
-
-function buildRoleBlock(role) {
-  const block = document.createElement("div");
-  block.className = "role-block";
-
-  const header = document.createElement("header");
-  header.innerHTML = `
-    <span>${role}</span>
-    <button type="button" class="add-btn" data-role="${role}">+ Ajouter</button>
-  `;
-
-  const list = document.createElement("div");
-  list.className = "person-list";
-  list.id = `list-${slug(role)}`;
-
-  const row = document.createElement("div");
-  row.className = "name-input-row";
-  row.style.display = "none";
-  row.innerHTML = `
-    <input type="text" placeholder="Prénom..." id="input-${slug(role)}" />
-    <button type="button" class="ok" data-role="${role}">OK</button>
-  `;
-
-  header.querySelector(".add-btn").addEventListener("click", () => {
-    row.style.display = row.style.display === "none" ? "flex" : "none";
-    const inp = row.querySelector("input");
-    if (row.style.display === "flex") {
-      inp.focus();
-    }
-  });
-  row.querySelector(".ok").addEventListener("click", () => {
-    const inp = row.querySelector("input");
-    const val = (inp.value || "").trim();
-    if (!val) return;
-    addPerson(role, val);
-    inp.value = "";
-    renderPersonList(role);
-  });
-  row.querySelector("input").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      row.querySelector(".ok").click();
-    }
-  });
-
-  block.appendChild(header);
-  block.appendChild(list);
-  block.appendChild(row);
-  return block;
-}
-
-function renderPersonList(role) {
-  const list = document.getElementById(`list-${slug(role)}`);
-  if (!list) return;
-  list.innerHTML = "";
-
-  const arr = playersMultiState[role] || [];
-  if (!arr.length) {
-    const empty = document.createElement("span");
-    empty.className = "muted";
-    empty.textContent = "Aucune personne ajoutée.";
-    list.appendChild(empty);
-    return;
-  }
-
-  arr.forEach((name, idx) => {
-    const chip = document.createElement("span");
-    chip.className = "name-chip";
-    chip.innerHTML = `
-      ${escapeHtml(name)}
-      <button type="button" class="remove" title="Retirer" aria-label="Retirer">×</button>
-    `;
-    chip.querySelector(".remove").addEventListener("click", () => {
-      removePerson(role, idx);
-      renderPersonList(role);
-    });
-    list.appendChild(chip);
-  });
-}
-
-function addPerson(role, name) {
-  const clean = name.replace(/\s+/g, " ").trim();
-  if (!clean) return;
-  const arr = playersMultiState[role] || [];
-  const exists = arr.some((n) => n.toLowerCase() === clean.toLowerCase());
-  if (!exists) {
-    arr.push(clean);
-    playersMultiState[role] = arr;
-    savePlayersMulti(playersMultiState);
-    const legacy = ROLES_KEYS.reduce((acc, r) => {
-      acc[r] =
-        playersMultiState[r] && playersMultiState[r][0]
-          ? playersMultiState[r][0]
-          : "";
-      return acc;
-    }, {});
-    savePlayersLegacy(legacy);
-  }
-}
-
-function removePerson(role, idx) {
-  const arr = playersMultiState[role] || [];
-  if (idx >= 0 && idx < arr.length) {
-    arr.splice(idx, 1);
-    playersMultiState[role] = arr;
-    savePlayersMulti(playersMultiState);
-    const legacy = ROLES_KEYS.reduce((acc, r) => {
-      acc[r] =
-        playersMultiState[r] && playersMultiState[r][0]
-          ? playersMultiState[r][0]
-          : "";
-      return acc;
-    }, {});
-    savePlayersLegacy(legacy);
-  }
-}
-
-function onSubmitRolesForm(e) {
-  e.preventDefault();
-  const ok = ROLES_KEYS.every(
-    (r) => playersMultiState[r] && playersMultiState[r].length > 0
-  );
-  if (!ok) {
-    alert("Merci d’ajouter au moins une personne dans chaque pôle.");
-    return;
-  }
-  showRolesOverlay(false);
-}
-
-/* utils overlay */
-function slug(s) {
-  return s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, "-");
-}
-function escapeHtml(str) {
-  return String(str).replace(
-    /[&<>"']/g,
-    (s) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[
-        s
-      ])
-  );
 }
 
 /* =========================================================
@@ -766,8 +451,8 @@ window.onload = () => {
   computeXpMax();
   renderProgress();
 
-  // overlay rôles (facultatif)
-  setupRolesUI?.(); // si l’overlay existe dans ton HTML, il sera initialisé
+  // overlay rôles (facultatif — si présent dans ton HTML)
+  if (typeof setupRolesUI === "function") setupRolesUI();
 
   // timeline 4 jeux et écran de départ
   renderTimeline();
@@ -778,7 +463,7 @@ window.onload = () => {
     end.innerHTML = "";
   }
   const body = document.getElementById("mission-body");
-  if (body) body.innerHTML = `<p>Commence par le Jeu 1.</p>`;
+  if (body) body.innerHTML = `<p>Choisis un jeu pour commencer.</p>`;
 
   // bouton rejouer
   const btnReset = document.getElementById("btn-reset");
