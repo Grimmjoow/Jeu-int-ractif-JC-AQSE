@@ -1,4 +1,4 @@
-/************  JC AQSE — jeu.js (overlay rôles + 4 jeux libres + XP fixe)  ************/
+/************  JC AQSE — jeu.js (overlay rôles + 4 jeux libres + XP fixe + lock par étape)  ************/
 
 /* =========================================================
    CONFIG / ETAT GÉNÉRAL
@@ -122,6 +122,15 @@ function startTimer(seconds, onExpire) {
   if (bar) bar.style.width = "100%";
   if (legend) legend.textContent = `⏱️ ${seconds}s restant(s)`;
   etatDuJeu.timer.handle = setInterval(tick, 1000);
+}
+
+// ---- Lock par étape (attaché à l’état local du jeu courant) ----
+function lockStep(S, n) {
+  S.locked = S.locked || {};
+  S.locked[n] = true;
+}
+function isStepLocked(S, n) {
+  return !!(S.locked && S.locked[n]);
 }
 
 /* =========================================================
@@ -465,7 +474,13 @@ function getBrainstormState() {
   const i = etatDuJeu.missionActuelle;
   if (!etatDuJeu._jeu1) etatDuJeu._jeu1 = {};
   if (!etatDuJeu._jeu1[i]) {
-    etatDuJeu._jeu1[i] = { step: 1, ideas: [], selected: [], tags: {} };
+    etatDuJeu._jeu1[i] = {
+      step: 1,
+      ideas: [],
+      selected: [],
+      tags: {},
+      locked: {},
+    };
   }
   return etatDuJeu._jeu1[i];
 }
@@ -518,6 +533,7 @@ function renderBrainstorm(index) {
           el.style.outline = "2px solid var(--primary)";
         el.textContent = txt;
         el.onclick = () => {
+          if (isStepLocked(s, 1)) return; // lecture seule si lock
           const pos = s.selected.indexOf(idx);
           if (pos >= 0) s.selected.splice(pos, 1);
           else {
@@ -529,11 +545,12 @@ function renderBrainstorm(index) {
         wrap.appendChild(el);
       });
       chip.appendChild(wrap);
-      nextBtn.disabled = s.selected.length !== 5;
+      nextBtn.disabled = s.selected.length !== 5 || isStepLocked(s, 1);
     }
 
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
+        if (isStepLocked(s, 1)) return;
         const v = input.value.trim();
         if (v) {
           s.ideas.push(v);
@@ -543,9 +560,19 @@ function renderBrainstorm(index) {
       }
     });
     nextBtn.onclick = () => {
+      lockStep(s, 1); // lock de l’étape 1
       s.step = 2;
       renderBrainstorm(index);
     };
+
+    // Lecture seule si locké
+    if (isStepLocked(s, 1)) {
+      input.disabled = true;
+      input.placeholder = "Étape 1 validée";
+      nextBtn.disabled = true;
+      nextBtn.textContent = "Étape 1 validée";
+    }
+
     renderList();
     return;
   }
@@ -621,11 +648,11 @@ function renderBrainstorm(index) {
 }
 
 /* =========================================================
-   JEU 2 — 7 étapes (ajout Étape 7 : entreprise visée)
+   JEU 2 — 7 étapes (ajout Étape 7 : entreprise visée) + lock par étape
 ========================================================= */
 function renderJeu2(index) {
   const key = `_jeu2_${index}`;
-  if (!etatDuJeu[key]) etatDuJeu[key] = { step: 1, data: {} };
+  if (!etatDuJeu[key]) etatDuJeu[key] = { step: 1, data: {}, locked: {} };
   const S = etatDuJeu[key];
   const m = missions[index];
   const body = document.getElementById("mission-body");
@@ -649,12 +676,20 @@ function renderJeu2(index) {
         <textarea id="j2s1" class="textarea" placeholder="Un paragraphe par rôle si possible…"></textarea>
         <div class="actions"><button class="btn" id="ok1">Suite</button></div>
       </div>`;
-    document.getElementById("ok1").onclick = () => {
-      const v = document.getElementById("j2s1").value.trim();
+    const t = document.getElementById("j2s1");
+    const b = document.getElementById("ok1");
+    b.onclick = () => {
+      const v = t.value.trim();
       if (!v) return showFeedback(false, "Réponse attendue.");
       S.data.s1 = v;
+      lockStep(S, 1);
       next();
     };
+    if (isStepLocked(S, 1)) {
+      t.disabled = true;
+      b.disabled = true;
+      b.textContent = "Étape 1 validée";
+    }
     return;
   }
 
@@ -667,12 +702,20 @@ function renderJeu2(index) {
         <textarea id="j2s2" class="textarea" placeholder="Vision + 3 objectifs…"></textarea>
         <div class="actions"><button class="btn" id="ok2">Suite</button></div>
       </div>`;
-    document.getElementById("ok2").onclick = () => {
-      const v = document.getElementById("j2s2").value.trim();
+    const t = document.getElementById("j2s2");
+    const b = document.getElementById("ok2");
+    b.onclick = () => {
+      const v = t.value.trim();
       if (!v) return showFeedback(false, "Réponse attendue.");
       S.data.s2 = v;
+      lockStep(S, 2);
       next();
     };
+    if (isStepLocked(S, 2)) {
+      t.disabled = true;
+      b.disabled = true;
+      b.textContent = "Étape 2 validée";
+    }
     return;
   }
 
@@ -698,12 +741,21 @@ function renderJeu2(index) {
           .join("")}
         <div class="actions"><button class="btn" id="ok3">Suite</button></div>
       </div>`;
-    document.getElementById("ok3").onclick = () => {
+    const b = document.getElementById("ok3");
+    b.onclick = () => {
       const v = document.querySelector('input[name="j2s3"]:checked');
       if (!v) return showFeedback(false, "Choisis une option.");
       S.data.s3 = parseInt(v.value, 10);
+      lockStep(S, 3);
       next();
     };
+    if (isStepLocked(S, 3)) {
+      document
+        .querySelectorAll('input[name="j2s3"]')
+        .forEach((i) => (i.disabled = true));
+      b.disabled = true;
+      b.textContent = "Étape 3 validée";
+    }
     return;
   }
 
@@ -730,12 +782,21 @@ function renderJeu2(index) {
           .join("")}
         <div class="actions"><button class="btn" id="ok4">Suite</button></div>
       </div>`;
-    document.getElementById("ok4").onclick = () => {
+    const b = document.getElementById("ok4");
+    b.onclick = () => {
       const v = document.querySelector('input[name="j2s4"]:checked');
       if (!v) return showFeedback(false, "Choisis une option.");
       S.data.s4 = parseInt(v.value, 10);
+      lockStep(S, 4);
       next();
     };
+    if (isStepLocked(S, 4)) {
+      document
+        .querySelectorAll('input[name="j2s4"]')
+        .forEach((i) => (i.disabled = true));
+      b.disabled = true;
+      b.textContent = "Étape 4 validée";
+    }
     return;
   }
 
@@ -751,6 +812,7 @@ function renderJeu2(index) {
       </div>`;
     const list = document.getElementById("j2s5list");
     const input = document.getElementById("j2s5in");
+    const b = document.getElementById("ok5");
     if (!S.data.s5) S.data.s5 = [];
     function renderList() {
       list.innerHTML = "";
@@ -764,10 +826,11 @@ function renderJeu2(index) {
           list.appendChild(line);
         });
       }
-      document.getElementById("ok5").disabled = S.data.s5.length < 1;
+      b.disabled = S.data.s5.length < 1 || isStepLocked(S, 5);
     }
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
+        if (isStepLocked(S, 5)) return;
         const v = input.value.trim();
         if (v) {
           S.data.s5.push(v);
@@ -776,7 +839,15 @@ function renderJeu2(index) {
         }
       }
     });
-    document.getElementById("ok5").onclick = () => next();
+    b.onclick = () => {
+      lockStep(S, 5);
+      next();
+    };
+    if (isStepLocked(S, 5)) {
+      input.disabled = true;
+      b.disabled = true;
+      b.textContent = "Étape 5 validée";
+    }
     renderList();
     return;
   }
@@ -799,6 +870,8 @@ function renderJeu2(index) {
         <div class="actions"><button class="btn" id="ok6">Suite</button></div>
       </div>`;
     const grid = document.getElementById("j2s6grid");
+    const whyEl = document.getElementById("j2s6why");
+    const b = document.getElementById("ok6");
     if (!S.data.s6) S.data.s6 = { budget: {}, why: "" };
     poles.forEach((p) => {
       const row = document.createElement("div");
@@ -809,17 +882,27 @@ function renderJeu2(index) {
       `;
       grid.appendChild(row);
     });
-    document.getElementById("ok6").onclick = () => {
+    b.onclick = () => {
       const budget = {};
       poles.forEach((p) => {
         const v = parseFloat(document.getElementById(`j2s6-${p}`).value || "0");
         budget[p] = isNaN(v) ? 0 : v;
       });
-      const why = document.getElementById("j2s6why").value.trim();
+      const why = whyEl.value.trim();
       if (!why) return showFeedback(false, "Explique tes choix.");
       S.data.s6 = { budget, why };
+      lockStep(S, 6);
       next(); // -> Étape 7
     };
+    if (isStepLocked(S, 6)) {
+      poles.forEach((p) => {
+        const el = document.getElementById(`j2s6-${p}`);
+        if (el) el.disabled = true;
+      });
+      whyEl.disabled = true;
+      b.disabled = true;
+      b.textContent = "Étape 6 validée";
+    }
     return;
   }
 
@@ -833,26 +916,34 @@ function renderJeu2(index) {
         <textarea id="j2s7why" class="textarea" placeholder="Justifiez en quelques lignes…"></textarea>
         <div class="actions"><button class="btn" id="ok7">Valider le Jeu 2</button></div>
       </div>`;
-    document.getElementById("ok7").onclick = () => {
+    const b = document.getElementById("ok7");
+    b.onclick = () => {
       const company = document.getElementById("j2s7company").value.trim();
       const why = document.getElementById("j2s7why").value.trim();
       if (!company)
         return showFeedback(false, "Indiquez une entreprise cible.");
       if (!why) return showFeedback(false, "Expliquez brièvement pourquoi.");
       S.data.s7 = { company, why };
+      lockStep(S, 7); // optionnel mais propre
       logResult(index, true, JSON.stringify(S.data));
       applySuccess(index, m);
     };
+    if (isStepLocked(S, 7)) {
+      document.getElementById("j2s7company").disabled = true;
+      document.getElementById("j2s7why").disabled = true;
+      b.disabled = true;
+      b.textContent = "Étape 7 validée";
+    }
     return;
   }
 }
 
 /* =========================================================
-   JEU 3 — Cohésion (4 étapes)
+   JEU 3 — Cohésion (4 étapes) + lock par étape
 ========================================================= */
 function renderJeu3(index) {
   const key = `_jeu3_${index}`;
-  if (!etatDuJeu[key]) etatDuJeu[key] = { step: 1, data: {} };
+  if (!etatDuJeu[key]) etatDuJeu[key] = { step: 1, data: {}, locked: {} };
   const S = etatDuJeu[key];
   const m = missions[index];
   const body = document.getElementById("mission-body");
@@ -876,12 +967,20 @@ function renderJeu3(index) {
         <textarea id="j3s1" class="textarea" placeholder="Ex : point hebdo, coffee visio, binômes, Discord…"></textarea>
         <div class="actions"><button class="btn" id="ok1">Suite</button></div>
       </div>`;
-    document.getElementById("ok1").onclick = () => {
-      const v = document.getElementById("j3s1").value.trim();
+    const t = document.getElementById("j3s1");
+    const b = document.getElementById("ok1");
+    b.onclick = () => {
+      const v = t.value.trim();
       if (!v) return showFeedback(false, "Réponse attendue.");
       S.data.s1 = v;
+      lockStep(S, 1);
       next();
     };
+    if (isStepLocked(S, 1)) {
+      t.disabled = true;
+      b.disabled = true;
+      b.textContent = "Étape 1 validée";
+    }
     return;
   }
 
@@ -894,12 +993,20 @@ function renderJeu3(index) {
         <textarea id="j3s2" class="textarea" placeholder="Ex : réu équipe hebdo 1h ; 1:1 toutes les 2 semaines…"></textarea>
         <div class="actions"><button class="btn" id="ok2">Suite</button></div>
       </div>`;
-    document.getElementById("ok2").onclick = () => {
-      const v = document.getElementById("j3s2").value.trim();
+    const t = document.getElementById("j3s2");
+    const b = document.getElementById("ok2");
+    b.onclick = () => {
+      const v = t.value.trim();
       if (!v) return showFeedback(false, "Réponse attendue.");
       S.data.s2 = v;
+      lockStep(S, 2);
       next();
     };
+    if (isStepLocked(S, 2)) {
+      t.disabled = true;
+      b.disabled = true;
+      b.textContent = "Étape 2 validée";
+    }
     return;
   }
 
@@ -925,12 +1032,21 @@ function renderJeu3(index) {
           .join("")}
         <div class="actions"><button class="btn" id="ok3">Suite</button></div>
       </div>`;
-    document.getElementById("ok3").onclick = () => {
+    const b = document.getElementById("ok3");
+    b.onclick = () => {
       const v = document.querySelector('input[name="j3s3"]:checked');
       if (!v) return showFeedback(false, "Choisis une option.");
       S.data.s3 = parseInt(v.value, 10);
+      lockStep(S, 3);
       next();
     };
+    if (isStepLocked(S, 3)) {
+      document
+        .querySelectorAll('input[name="j3s3"]')
+        .forEach((i) => (i.disabled = true));
+      b.disabled = true;
+      b.textContent = "Étape 3 validée";
+    }
     return;
   }
 
@@ -943,24 +1059,34 @@ function renderJeu3(index) {
         <label class="option"><span>Budget cohésion (€) :</span> <input id="j3s4bud" type="number" min="0" class="input" style="max-width:160px"></label>
         <div class="actions"><button class="btn" id="ok4">Valider le Jeu 3</button></div>
       </div>`;
-    document.getElementById("ok4").onclick = () => {
-      const plan = document.getElementById("j3s4plan").value.trim();
-      const bud = parseFloat(document.getElementById("j3s4bud").value || "0");
+    const planEl = document.getElementById("j3s4plan");
+    const budEl = document.getElementById("j3s4bud");
+    const b = document.getElementById("ok4");
+    b.onclick = () => {
+      const plan = planEl.value.trim();
+      const bud = parseFloat(budEl.value || "0");
       if (!plan) return showFeedback(false, "Plan attendu.");
       S.data.s4 = { plan, budget: isNaN(bud) ? 0 : bud };
+      lockStep(S, 4);
       logResult(index, true, JSON.stringify(S.data));
       applySuccess(index, m);
     };
+    if (isStepLocked(S, 4)) {
+      planEl.disabled = true;
+      budEl.disabled = true;
+      b.disabled = true;
+      b.textContent = "Étape 4 validée";
+    }
     return;
   }
 }
 
 /* =========================================================
-   JEU 4 — Partenariats (7 étapes)
+   JEU 4 — Partenariats (7 étapes) + lock par étape
 ========================================================= */
 function renderJeu4(index) {
   const key = `_jeu4_${index}`;
-  if (!etatDuJeu[key]) etatDuJeu[key] = { step: 1, data: {} };
+  if (!etatDuJeu[key]) etatDuJeu[key] = { step: 1, data: {}, locked: {} };
   const S = etatDuJeu[key];
   const m = missions[index];
   const body = document.getElementById("mission-body");
@@ -984,12 +1110,20 @@ function renderJeu4(index) {
         <textarea id="j4s1" class="textarea" placeholder="Ex : Préfas Incendie, BNP Paribas, PROPULSE, JPM…"></textarea>
         <div class="actions"><button class="btn" id="ok1">Suite</button></div>
       </div>`;
-    document.getElementById("ok1").onclick = () => {
-      const v = document.getElementById("j4s1").value.trim();
+    const t = document.getElementById("j4s1");
+    const b = document.getElementById("ok1");
+    b.onclick = () => {
+      const v = t.value.trim();
       if (!v) return showFeedback(false, "Réponse attendue.");
       S.data.s1 = v;
+      lockStep(S, 1);
       next();
     };
+    if (isStepLocked(S, 1)) {
+      t.disabled = true;
+      b.disabled = true;
+      b.textContent = "Étape 1 validée";
+    }
     return;
   }
 
@@ -1002,12 +1136,20 @@ function renderJeu4(index) {
         <input id="j4s2" class="input" placeholder="Nom de l’entreprise (ex : PWC)">
         <div class="actions"><button class="btn" id="ok2">Suite</button></div>
       </div>`;
-    document.getElementById("ok2").onclick = () => {
-      const v = document.getElementById("j4s2").value.trim();
+    const t = document.getElementById("j4s2");
+    const b = document.getElementById("ok2");
+    b.onclick = () => {
+      const v = t.value.trim();
       if (!v) return showFeedback(false, "Réponse attendue.");
       S.data.s2 = v;
+      lockStep(S, 2);
       next();
     };
+    if (isStepLocked(S, 2)) {
+      t.disabled = true;
+      b.disabled = true;
+      b.textContent = "Étape 2 validée";
+    }
     return;
   }
 
@@ -1031,12 +1173,21 @@ function renderJeu4(index) {
           .join("")}
         <div class="actions"><button class="btn" id="ok3">Suite</button></div>
       </div>`;
-    document.getElementById("ok3").onclick = () => {
+    const b = document.getElementById("ok3");
+    b.onclick = () => {
       const v = document.querySelector('input[name="j4s3"]:checked');
       if (!v) return showFeedback(false, "Choisis une option.");
       S.data.s3 = parseInt(v.value, 10);
+      lockStep(S, 3);
       next();
     };
+    if (isStepLocked(S, 3)) {
+      document
+        .querySelectorAll('input[name="j4s3"]')
+        .forEach((i) => (i.disabled = true));
+      b.disabled = true;
+      b.textContent = "Étape 3 validée";
+    }
     return;
   }
 
@@ -1049,12 +1200,20 @@ function renderJeu4(index) {
         <textarea id="j4s4" class="textarea" placeholder="PME, ETI, industriels, cabinets, etc. + justification"></textarea>
         <div class="actions"><button class="btn" id="ok4">Suite</button></div>
       </div>`;
-    document.getElementById("ok4").onclick = () => {
-      const v = document.getElementById("j4s4").value.trim();
+    const t = document.getElementById("j4s4");
+    const b = document.getElementById("ok4");
+    b.onclick = () => {
+      const v = t.value.trim();
       if (!v) return showFeedback(false, "Réponse attendue.");
       S.data.s4 = v;
+      lockStep(S, 4);
       next();
     };
+    if (isStepLocked(S, 4)) {
+      t.disabled = true;
+      b.disabled = true;
+      b.textContent = "Étape 4 validée";
+    }
     return;
   }
 
@@ -1067,12 +1226,20 @@ function renderJeu4(index) {
         <textarea id="j4s5" class="textarea" placeholder="Ex : PME locale du secteur X ; Exemple : ACME Industrie"></textarea>
         <div class="actions"><button class="btn" id="ok5">Suite</button></div>
       </div>`;
-    document.getElementById("ok5").onclick = () => {
-      const v = document.getElementById("j4s5").value.trim();
+    const t = document.getElementById("j4s5");
+    const b = document.getElementById("ok5");
+    b.onclick = () => {
+      const v = t.value.trim();
       if (!v) return showFeedback(false, "Réponse attendue.");
       S.data.s5 = v;
+      lockStep(S, 5);
       next();
     };
+    if (isStepLocked(S, 5)) {
+      t.disabled = true;
+      b.disabled = true;
+      b.textContent = "Étape 5 validée";
+    }
     return;
   }
 
@@ -1092,6 +1259,7 @@ function renderJeu4(index) {
         <div class="actions"><button class="btn" id="ok6">Suite</button></div>
       </div>`;
     const zone = document.getElementById("j4s6");
+    const b = document.getElementById("ok6");
     if (!S.data.s6) S.data.s6 = {};
     poles.forEach((p) => {
       const row = document.createElement("div");
@@ -1103,7 +1271,7 @@ function renderJeu4(index) {
       `;
       zone.appendChild(row);
     });
-    document.getElementById("ok6").onclick = () => {
+    b.onclick = () => {
       const data = {};
       poles.forEach((p) => {
         const bud = parseFloat(
@@ -1113,8 +1281,19 @@ function renderJeu4(index) {
         data[p] = { budget: isNaN(bud) ? 0 : bud, arg };
       });
       S.data.s6 = data;
+      lockStep(S, 6);
       next();
     };
+    if (isStepLocked(S, 6)) {
+      poles.forEach((p) => {
+        const budEl = document.getElementById(`j4s6-bud-${p}`);
+        const argEl = document.getElementById(`j4s6-arg-${p}`);
+        if (budEl) budEl.disabled = true;
+        if (argEl) argEl.disabled = true;
+      });
+      b.disabled = true;
+      b.textContent = "Étape 6 validée";
+    }
     return;
   }
 
@@ -1128,14 +1307,24 @@ function renderJeu4(index) {
         <textarea id="j4s7ideas" class="textarea" placeholder="Ex : petit-déj pro, ateliers, visite site, contenus co-brandés…"></textarea>
         <div class="actions"><button class="btn" id="ok7">Valider le Jeu 4</button></div>
       </div>`;
-    document.getElementById("ok7").onclick = () => {
-      const bud = parseFloat(document.getElementById("j4s7bud").value || "0");
-      const ideas = document.getElementById("j4s7ideas").value.trim();
+    const budEl = document.getElementById("j4s7bud");
+    const ideasEl = document.getElementById("j4s7ideas");
+    const b = document.getElementById("ok7");
+    b.onclick = () => {
+      const bud = parseFloat(budEl.value || "0");
+      const ideas = ideasEl.value.trim();
       if (!ideas) return showFeedback(false, "Donne des exemples d’actions.");
       S.data.s7 = { budget: isNaN(bud) ? 0 : bud, ideas };
+      lockStep(S, 7);
       logResult(index, true, JSON.stringify(S.data));
       applySuccess(index, m);
     };
+    if (isStepLocked(S, 7)) {
+      budEl.disabled = true;
+      ideasEl.disabled = true;
+      b.disabled = true;
+      b.textContent = "Étape 7 validée";
+    }
     return;
   }
 }
