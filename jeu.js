@@ -492,7 +492,7 @@ function renderBrainstorm(index) {
           <h4>Instructions</h4>
           <ul class="muted">
             <li>Ajoute un maximum d’idées (Entrée pour valider chacune).</li>
-            <li>Sélectionne ensuite <strong>5 de tes idées</strong>parmis celle que tu as choisis(cliquer pour sélectionner/désélectionner).</li>
+            <li>Sélectionne ensuite <strong>5 de tes idées</strong> parmis celle que tu as choisis (cliquer pour sélectionner/désélectionner).</li>
           </ul>
         </div>
       </div>
