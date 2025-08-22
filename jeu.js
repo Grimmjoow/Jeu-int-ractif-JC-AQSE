@@ -614,6 +614,7 @@ function renderBrainstorm(index) {
     };
     document.getElementById("bs-validate").onclick = () => {
       const m = missions[index];
+
       // Mémo des tags (idée → pôle)
       const mapping = selectedIdeas
         .map((idea, k) => `${idea} → ${s.tags[k] || poles[0]}`)
@@ -635,7 +636,7 @@ function renderBrainstorm(index) {
 }
 
 /* =========================================================
-   JEU 2 — 7 étapes (ajout Étape 7 : entreprise visée)
+   JEU 2 — 7 étapes (Étape 3 = tableau dyn. “Qui prospecte qui ?”)
 ========================================================= */
 function renderJeu2(index) {
   const key = `_jeu2_${index}`;
@@ -692,33 +693,147 @@ function renderJeu2(index) {
     return;
   }
 
-  // 3) QCM commun — stratégie de prospection
+  // 3) *** NOUVEAU *** Tableau dynamique — Qui prospecte quelles parties prenantes ?
   if (S.step === 3) {
-    const opts = [
-      "Prospection hebdo structurée (2h x 2 / semaine)",
-      "Prospection uniquement à l’approche des échéances",
-      "Aucune prospection, attendre l’inbound",
+    // Liste des secteurs (colonne 1) et des parties intéressées (colonne 3)
+    const sectors = [
+      "Industrie (Agroalimentaire, Chimie, Pétrochimie…)",
+      "Construction et BTP",
+      "Énergie et Environnement",
+      "Services et Commerces",
+      "Santé et Social",
+      "Administration & collectivités",
+      "Informatique & Nouvelles Technologies",
+      "Agriculture",
+      "Startups & TPE/PME",
+      "Éducation et formation",
+      "Luxe & mode",
+      "Industrie minière & extractive",
+      "Secteur maritime & portuaire",
+      "Tourisme & loisirs durables",
+      "Événementiel",
+      "Centres de recherche & labos (incl. contrôle qualité)",
+      "Centres commerciaux & immobilier (incl. audits sécurité)",
+      "Marché public",
+      "Supply‑chain / Logistique",
     ];
+    const stakeholders = [
+      "ESAIP",
+      "Alumnis ESAIP",
+      "Partenaires ESAIP",
+      "Alumnis Junior",
+      "Partenaires Junior (actuels & anciens)",
+      "Anciens clients",
+      "Autres JE (certifiées pour audit)",
+      "Entreprises de stages/alternances",
+      "Professeurs / intervenants",
+      "Contacts perso",
+    ];
+
     body.innerHTML += `
       <div class="card">
-        <h4>Étape 3 — QCM commun</h4>
-        <p><strong>Quelle stratégie de prospection adoptez‑vous ?</strong></p>
-        ${opts
-          .map(
-            (o, i) => `
-          <label class="option">
-            <input type="radio" name="j2s3" value="${i}">
-            <span>${o}</span>
-          </label>`
-          )
-          .join("")}
-        <div class="actions"><button class="btn" id="ok3">Suite</button></div>
+        <h4>Étape 3 — Qui prospecte quelles parties prenantes ?</h4>
+        <p class="muted" style="margin-top:4px">
+          <strong>Consigne :</strong> <em>Écrivez le nom des pôles dans les cases que vous souhaitez</em>.
+        </p>
+        <div style="overflow:auto; margin-top:8px;">
+          <table style="width:100%; border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="text-align:left; padding:8px; border-bottom:1px solid rgba(255,255,255,.12)">Secteurs d'activités</th>
+                <th style="text-align:left; padding:8px; border-bottom:1px solid rgba(255,255,255,.12)">Responsable</th>
+                <th style="text-align:left; padding:8px; border-bottom:1px solid rgba(255,255,255,.12)">Parties intéressées</th>
+                <th style="text-align:left; padding:8px; border-bottom:1px solid rgba(255,255,255,.12)">Responsable</th>
+              </tr>
+            </thead>
+            <tbody id="j2s3-body"></tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button class="btn" id="ok3">Suite</button>
+        </div>
       </div>`;
+
+    const tb = document.getElementById("j2s3-body");
+
+    // Construit les lignes
+    sectors.forEach((sec, i) => {
+      const row = document.createElement("tr");
+
+      function td(txt) {
+        const d = document.createElement("td");
+        d.style.padding = "8px";
+        d.style.borderBottom = "1px solid rgba(255,255,255,.06)";
+        d.innerHTML = txt;
+        return d;
+      }
+      // input helper
+      function inputCell(cls) {
+        const d = document.createElement("td");
+        d.style.padding = "8px";
+        d.style.borderBottom = "1px solid rgba(255,255,255,.06)";
+        const inp = document.createElement("input");
+        inp.className = `input ${cls}`;
+        inp.placeholder = "ex : Présidence";
+        inp.dataset.row = String(i);
+        d.appendChild(inp);
+        return d;
+      }
+
+      row.appendChild(td(`<strong>${sec}</strong>`));
+      row.appendChild(inputCell("j2s3-resp-secteur"));
+
+      const stkh = stakeholders[i % stakeholders.length];
+      row.appendChild(td(stkh));
+      row.appendChild(inputCell("j2s3-resp-partie"));
+
+      tb.appendChild(row);
+    });
+
+    // Si retour sur l'étape, recharger les anciennes saisies
+    if (S.data.s3 && Array.isArray(S.data.s3.rows)) {
+      S.data.s3.rows.forEach((r, idx) => {
+        const a = tb.querySelector(`.j2s3-resp-secteur[data-row="${idx}"]`);
+        const b = tb.querySelector(`.j2s3-resp-partie[data-row="${idx}"]`);
+        if (a) a.value = r.respSecteur || "";
+        if (b) b.value = r.respPartie || "";
+      });
+    }
+
     document.getElementById("ok3").onclick = () => {
-      const v = document.querySelector('input[name="j2s3"]:checked');
-      if (!v) return showFeedback(false, "Choisis une option.");
-      S.data.s3 = parseInt(v.value, 10);
-      ajouterMemo("Stratégie de prospection", opts[S.data.s3]);
+      // Collecte des données
+      const rows = [];
+      const aList = tb.querySelectorAll(".j2s3-resp-secteur");
+      const bList = tb.querySelectorAll(".j2s3-resp-partie");
+      for (let i = 0; i < sectors.length; i++) {
+        rows.push({
+          secteur: sectors[i],
+          parties: stakeholders[i % stakeholders.length],
+          respSecteur: aList[i]?.value.trim() || "",
+          respPartie: bList[i]?.value.trim() || "",
+        });
+      }
+      S.data.s3 = { rows };
+
+      // Mémo : quelques infos utiles
+      const filled =
+        rows.filter((r) => r.respSecteur || r.respPartie).length || 0;
+      ajouterMemo(
+        "Attribution prospection",
+        `${filled} ligne(s) renseignée(s)`
+      );
+      const preview = rows
+        .filter((r) => r.respSecteur || r.respPartie)
+        .slice(0, 4)
+        .map(
+          (r) =>
+            `${r.secteur} → <em>${r.respSecteur || "—"}</em> / ${
+              r.parties
+            } → <em>${r.respPartie || "—"}</em>`
+        )
+        .join("<br>");
+      if (preview) ajouterMemo("Exemples (aperçu)", preview);
+
       next();
     };
     return;
