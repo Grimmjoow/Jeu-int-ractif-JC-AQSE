@@ -806,3 +806,37 @@ body {
 .btn-reset {
   margin-left: 8px;
 }
+
+.roles-input-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.roles-input-row input {
+  flex: 1;
+}
+.roles-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.roles-pill {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.roles-pill button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.btn.small {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+}

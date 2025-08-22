@@ -13,11 +13,11 @@ const missions = [
     titre: "Organiser une conférence à destination des professionnels",
     question:
       "Quelles sont les idées qui vous viennent pour organiser cet évènement ?",
-    // Timer demandé : 6 minutes
+    // Timer : 6 minutes
     timerSec: 360,
-    // Le MJ valide (il peut accepter/refuser les idées sup)
+    // Le MJ peut accepter/refuser les ajouts si besoin (le code Valide quand on clique sur “Valider le jeu”)
     validation: "mj",
-    // Paramètres UI du brainstorm
+    // Paramètres UI du brainstorm (utilisés par renderBrainstorm côté jeu.js)
     config: {
       minIdeas: 6, // au moins 6 idées saisies
       maxSelected: 5, // on en retient 5
@@ -34,6 +34,13 @@ const missions = [
 
   /* --------------------------------------------------------
      JEU 2 — Objectif CA & Prospection (6 étapes)
+       Étapes (gérées dans renderJeu2) :
+        1) Libre (Présidence/Tréso/SecG) — cadrage initial
+        2) Libre (Présidence) — vision + 3 objectifs
+        3) QCM commun — stratégie de prospection (choix unique)
+        4) QCM commun — rythme / fréquence (choix unique)
+        5) Brainstorm — canaux & événements
+        6) Budget par pôle + pourquoi (libre) -> Validation
      -------------------------------------------------------- */
   {
     id: "jeu2",
@@ -42,44 +49,17 @@ const missions = [
     titre: "Fixer le CA & organiser la prospection",
     question:
       "Définissez l’objectif de CA du mandat, répartissez les responsabilités et cadrez la prospection.",
-    // QCM utilisés par les étapes 3 et 4
-    qcm: [
-      // Étape 3 — QCM commun #1 : fréquence de prospection
-      {
-        titre: "Fréquence de prospection",
-        question:
-          "À quelle fréquence faut-il prospecter pour atteindre l’objectif de CA ?",
-        options: [
-          "1 fois / semaine",
-          "1 fois / mois",
-          "3 fois / semaine – créneaux de 2h",
-          "3 fois / semaine – créneaux de 15 min",
-          "3 fois / mois",
-          "Tous les jours 15 min (hors week-ends)",
-        ],
-        // Bonne réponse retenue (ajuste si besoin)
-        bonneReponse: 2,
-      },
-      // Étape 4 — QCM commun #2 : canal le plus pertinent au démarrage
-      {
-        titre: "Canal prioritaire pour démarrer",
-        question:
-          "Quel canal est le plus pertinent pour lancer la prospection B2B ?",
-        options: [
-          "Affichage sur le campus",
-          "Porte-à-porte en entreprise sans rdv",
-          "LinkedIn + Email ciblé",
-          "Stories Instagram",
-        ],
-        bonneReponse: 2,
-      },
-    ],
-    // (Les autres étapes sont en réponses libres / brainstorm / budget dans jeu.js)
+    // NB : les QCM d’étapes 3 et 4 sont définis directement dans renderJeu2.
     scoring: { xp: 30 },
   },
 
   /* --------------------------------------------------------
      JEU 3 — Cohésion d’équipe (4 étapes)
+       Étapes (gérées dans renderJeu3) :
+        1) Libre — actions pour la cohésion à distance
+        2) Libre — fréquence réunions & suivi individuel
+        3) QCM — choix d’un pack de rituels
+        4) Libre — plan avant décembre + budget cohésion -> Validation
      -------------------------------------------------------- */
   {
     id: "jeu3",
@@ -88,12 +68,19 @@ const missions = [
     titre: "Cohésion d’équipe sur l’année",
     question:
       "Construisez un plan de cohésion viable (Erasmus, stages…), cadencez les réunions et justifiez vos choix.",
-    // (Les contenus d’étapes sont gérés dans jeu.js ; QCM simple étape 3)
     scoring: { xp: 25 },
   },
 
   /* --------------------------------------------------------
      JEU 4 — Partenariats & Prospection (7 étapes)
+       Étapes (gérées dans renderJeu4) :
+        1) Libre — partenaires actuels
+        2) Libre — entreprise en période d’essai (1 an)
+        3) QCM — renouvellement + où se trouve l’info
+        4) Libre — types d’entreprises pertinentes à prospecter
+        5) Libre — cible prioritaire + exemple
+        6) Formulaire — budget & arguments par pôle
+        7) Libre — budget “séduction” + idées d’actions -> Validation
      -------------------------------------------------------- */
   {
     id: "jeu4",
@@ -101,37 +88,7 @@ const missions = [
     type: "jeu4",
     titre: "Partenariats & Prospection",
     question:
-      "Identifiez/renouvelez les partenaires, ciblez des secteurs, puis organisez budget et actions.",
-    data: {
-      // Étape 2 — QCM multi : partenaires actuels (doivent tous être cochés)
-      partenairesActuels: ["Préfas Incendie", "BNP Paribas", "PROPULSE", "JPM"],
-      // Étape 3a — Entreprise en période d’essai 1 an
-      partenaireEssai: "PWC",
-      // Étape 3b — Renouvellement : quand / où / durées possibles
-      renouvellement: {
-        bonnePeriode: "Janvier",
-        bonDossier: "Stratégie et pilotage",
-        durees: ["1 an", "2 ans", "3 ans", "5 ans"],
-        bonneDurees: ["1 an", "2 ans"],
-      },
-      // Étape 5 — Cibles/secteurs pertinents (multi)
-      secteursPertinents: [
-        "PME",
-        "Industries",
-        "ETI",
-        "Startups",
-        "Collectivités",
-        "Ecoles/Universités",
-      ],
-      // Étape 6 — Pôles pour le budget partenaires
-      roles: [
-        "Présidence",
-        "Trésorerie",
-        "Secrétariat",
-        "Événementiel",
-        "Communication",
-      ],
-    },
+      "Identifiez / renouvelez les partenaires, ciblez des secteurs, puis organisez budget et actions.",
     scoring: { xp: 30 },
   },
 ];

@@ -58,7 +58,7 @@
       <section id="end-screen" class="card" style="display: none"></section>
     </main>
 
-    <!-- Overlay d'affectation des rôles (amélioré) -->
+    <!-- Overlay d'affectation des rôles (multi-prénoms) -->
     <div
       id="roles-overlay"
       class="overlay hidden"
@@ -68,61 +68,56 @@
       <div class="overlay-card">
         <h2>Affecte les rôles avant de commencer</h2>
         <p class="muted">
-          Entre le prénom pour chaque pôle. Tu pourras rejouer à tout moment
-          avec le bouton en haut à droite.
+          Tu peux ajouter plusieurs prénoms par pôle. Clique sur
+          <strong>+</strong> pour valider un prénom, ou entre plusieurs prénoms
+          séparés par une virgule.
         </p>
 
         <form id="roles-form" class="roles-form">
-          <label
-            >Présidence
-            <input
-              type="text"
-              name="Présidence"
-              placeholder="ex : Camille"
-              autocomplete="name"
-              required
-            />
-          </label>
-          <label
-            >Trésorerie
-            <input
-              type="text"
-              name="Trésorerie"
-              placeholder="ex : Théo"
-              autocomplete="name"
-              required
-            />
-          </label>
-          <label
-            >Secrétariat
-            <input
-              type="text"
-              name="Secrétariat"
-              placeholder="ex : Lina"
-              autocomplete="name"
-              required
-            />
-          </label>
-          <label
-            >Événementiel
-            <input
-              type="text"
-              name="Événementiel"
-              placeholder="ex : Jules"
-              autocomplete="name"
-              required
-            />
-          </label>
-          <label
-            >Communication
-            <input
-              type="text"
-              name="Communication"
-              placeholder="ex : Emma"
-              autocomplete="name"
-              required
-            />
-          </label>
+          <div class="role-block" data-role="Présidence">
+            <label>Présidence</label>
+            <div class="roles-input-row">
+              <input type="text" placeholder="ex : Camille" />
+              <button type="button" class="btn small add-name">+</button>
+            </div>
+            <div class="roles-list"></div>
+          </div>
+
+          <div class="role-block" data-role="Trésorerie">
+            <label>Trésorerie</label>
+            <div class="roles-input-row">
+              <input type="text" placeholder="ex : Théo" />
+              <button type="button" class="btn small add-name">+</button>
+            </div>
+            <div class="roles-list"></div>
+          </div>
+
+          <div class="role-block" data-role="Secrétariat">
+            <label>Secrétariat</label>
+            <div class="roles-input-row">
+              <input type="text" placeholder="ex : Lina" />
+              <button type="button" class="btn small add-name">+</button>
+            </div>
+            <div class="roles-list"></div>
+          </div>
+
+          <div class="role-block" data-role="Événementiel">
+            <label>Événementiel</label>
+            <div class="roles-input-row">
+              <input type="text" placeholder="ex : Jules" />
+              <button type="button" class="btn small add-name">+</button>
+            </div>
+            <div class="roles-list"></div>
+          </div>
+
+          <div class="role-block" data-role="Communication">
+            <label>Communication</label>
+            <div class="roles-input-row">
+              <input type="text" placeholder="ex : Emma" />
+              <button type="button" class="btn small add-name">+</button>
+            </div>
+            <div class="roles-list"></div>
+          </div>
 
           <div class="hero-ctas">
             <button type="submit" class="btn">Commencer</button>
