@@ -1,4 +1,12 @@
-/************  JC AQSE — jeu.js (overlay rôles + 4 jeux libres + XP fixe)  ************/
+/************  JC AQSE — jeu.js  ************/
+/* Intègre :
+   - Overlay rôles (multi-prénoms)
+   - 4 jeux libres
+   - XP global
+   - ✅ Tes demandes : J2-E6 clarifiée + réponses par pôle ; J3-E1 brainstorm ;
+     J3-E3 question fréquence réunions + contacts ; J3-E4 budget cohésion (Tréso/SecG/Reste) avec affichage ;
+     J4-E1 brainstorm.
+*/
 
 /* =========================================================
    CONFIG / ETAT GÉNÉRAL
@@ -25,14 +33,13 @@ function computeXpMax() {
 // État de jeu global
 let etatDuJeu = {
   etapesTerminees: [],
-  missionActuelle: null, // index 0..3 (les 4 jeux)
+  missionActuelle: null, // index 0..3
   timer: { handle: null, total: 0, left: 0, expired: false },
 
-  // états internes par jeu
   _jeu1: {}, // brainstorm
-  _jeu2: {}, // série 7 étapes
-  _jeu3: {}, // cohésion (4 étapes)
-  _jeu4: {}, // partenariats (7 étapes)
+  _jeu2: {}, // stratégie commerciale
+  _jeu3: {}, // cohésion
+  _jeu4: {}, // partenariats
 };
 
 // Journal simple si besoin d’un bilan (non exporté)
@@ -40,9 +47,7 @@ const results = [];
 
 // Verrouillage : un jeu validé => verrouillé (non rejouable dans la session)
 const missionLocked = new Set();
-function isLocked(idx) {
-  return missionLocked.has(idx);
-}
+const isLocked = (idx) => missionLocked.has(idx);
 function lockMission(idx) {
   missionLocked.add(idx);
   setTimelineStates();
@@ -52,7 +57,6 @@ function lockMission(idx) {
    UTILS
 ========================================================= */
 function renderProgress() {
-  // Défensif : si jamais XP_MAX est 0 (missions pas encore chargées)
   if (!XP_MAX || XP_MAX < 1) computeXpMax();
   const perc = Math.max(
     0,
@@ -97,32 +101,6 @@ function stopTimer() {
     etatDuJeu.timer.handle = null;
   }
 }
-function startTimer(seconds, onExpire) {
-  stopTimer();
-  etatDuJeu.timer.total = seconds;
-  etatDuJeu.timer.left = seconds;
-  etatDuJeu.timer.expired = false;
-  const bar = document.getElementById("timer-bar");
-  const legend = document.getElementById("timer-legend");
-
-  function tick() {
-    etatDuJeu.timer.left -= 1;
-    const pct = Math.max(
-      0,
-      Math.round((etatDuJeu.timer.left / etatDuJeu.timer.total) * 100)
-    );
-    if (bar) bar.style.width = pct + "%";
-    if (legend) legend.textContent = `⏱️ ${etatDuJeu.timer.left}s restant(s)`;
-    if (etatDuJeu.timer.left <= 0) {
-      stopTimer();
-      etatDuJeu.timer.expired = true;
-      if (typeof onExpire === "function") onExpire();
-    }
-  }
-  if (bar) bar.style.width = "100%";
-  if (legend) legend.textContent = `⏱️ ${seconds}s restant(s)`;
-  etatDuJeu.timer.handle = setInterval(tick, 1000);
-}
 
 /* =========================================================
    TIMELINE (4 jeux libres)
@@ -137,7 +115,7 @@ function renderTimeline() {
     btn.className = "step-btn";
     btn.textContent = `${i + 1}. Jeu ${i + 1}`;
     btn.dataset.index = String(i);
-    btn.disabled = isLocked(i); // accessible par défaut, bloqué une fois fini
+    btn.disabled = isLocked(i);
     btn.onclick = () => loadStep(i);
     wrap.appendChild(btn);
   }
@@ -166,7 +144,6 @@ function loadStep(index) {
    AFFICHAGE D’UN JEU (tête + délégation)
 ========================================================= */
 function renderMission(index) {
-  // Assure que XP_MAX est correct même si missions a été (re)chargé après
   if (!XP_MAX || XP_MAX < 1) computeXpMax();
 
   const m = missions[index];
@@ -174,37 +151,20 @@ function renderMission(index) {
   if (!body) return;
 
   clearMemo();
-  stopTimer();
 
   let html = `
     <h3 class="mission-title">${m.titre || `Jeu ${index + 1}`}</h3>
     <div class="mission-meta">
       <span class="role-badge">Jeu ${index + 1}</span>
-      ${
-        m.scoring?.xp || m.points
-          ? `&nbsp;•&nbsp; ${m.scoring?.xp ?? m.points} XP`
-          : ""
-      }
+      ${m.scoring?.xp ? `&nbsp;•&nbsp; ${m.scoring.xp} XP` : ""}
     </div>
     ${m.question ? `<p>${m.question}</p>` : ""}
   `;
+  body.innerHTML = html;
 
-  if (m.timerSec) {
-    html += `
-      <div class="timer-wrap"><div id="timer-bar" class="timer-bar"></div></div>
-      <div id="timer-legend" class="timer-legend"></div>
-    `;
-  }
-
-  const container = document.getElementById("mission-body");
-  container.innerHTML = html;
-
-  // Types natifs
   if (m.type === "qcm" || m.type === "choix" || m.type === "texte") {
     renderNativeMissionUI(index, m);
-  }
-  // Jeux custom
-  else if (m.type === "brainstorm") {
+  } else if (m.type === "brainstorm") {
     if (isLocked(index)) {
       disableCurrentInputs();
       ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
@@ -224,26 +184,16 @@ function renderMission(index) {
       ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
       return;
     }
-    if (typeof renderJeu3 === "function") renderJeu3(index);
-    else container.innerHTML += `<div class="end-screen">Jeu 3 à venir.</div>`;
+    renderJeu3(index);
   } else if (m.type === "jeu4") {
     if (isLocked(index)) {
       disableCurrentInputs();
       ajouterMemo("Statut", "Jeu déjà validé (verrouillé)");
       return;
     }
-    if (typeof renderJeu4 === "function") renderJeu4(index);
-    else container.innerHTML += `<div class="end-screen">Jeu 4 à venir.</div>`;
+    renderJeu4(index);
   } else {
-    container.innerHTML += `<div class="end-screen">Type de mission à venir.</div>`;
-  }
-
-  if (m.timerSec) {
-    startTimer(m.timerSec, () => {
-      showFeedback(false, "⏱️ Temps écoulé.");
-      if (m.penalty?.xp) majIndics({ xp: m.penalty.xp });
-      ajouterMemo("Timer", "Temps écoulé");
-    });
+    body.innerHTML += `<div class="end-screen">Type de mission à venir.</div>`;
   }
 
   if (isLocked(index)) {
@@ -279,24 +229,24 @@ function renderNativeMissionUI(index, m) {
       <textarea id="reponse-texte" class="textarea" placeholder="${
         m.placeholder || "Écrivez ici..."
       }"></textarea>
-      <div class="mj-actions">
-        <span class="mj-badge">Validation : ${
-          m.validation === "mj" ? "Maître du jeu" : "Automatique"
-        }</span>
-        ${
-          m.validation === "mj"
-            ? `<button class="btn" onclick="validerParMJ(${index}, true)">✅ Valider (MJ)</button>
-             <button class="btn secondary" onclick="validerParMJ(${index}, false)">❌ Refuser (MJ)</button>`
-            : `<button class="btn" onclick="validerTexte(${index})">Valider</button>`
-        }
+      <div class="actions">
+        <button class="btn" onclick="validerTexte(${index})">Valider</button>
       </div>`;
   }
 
   body.innerHTML = html;
 }
 
+function disableCurrentInputs() {
+  document
+    .querySelectorAll(
+      "#mission-body input, #mission-body textarea, #mission-body button"
+    )
+    .forEach((el) => (el.disabled = true));
+}
+
 /* =========================================================
-   VALIDATIONS GÉNÉRIQUES (natifs)
+   VALIDATIONS GÉNÉRIQUES
 ========================================================= */
 function logResult(index, ok, answerText) {
   const m = missions[index] || {};
@@ -309,12 +259,9 @@ function logResult(index, ok, answerText) {
     ts: new Date().toISOString(),
   });
 }
-function rewardXpOf(m) {
-  return m?.scoring?.xp ?? m.points ?? 0;
-}
+const rewardXpOf = (m) => m?.scoring?.xp ?? m.points ?? 0;
 
 function applySuccess(index, m) {
-  // Garanti que XP_MAX est bon
   if (!XP_MAX || XP_MAX < 1) computeXpMax();
   const xp = rewardXpOf(m || {});
   majIndics({ xp });
@@ -323,10 +270,8 @@ function applySuccess(index, m) {
   }
   disableCurrentInputs();
   showFeedback(true, `Jeu validé ! +${xp} XP`);
-  // verrouille définitivement ce jeu
   lockMission(index);
   setTimelineStates();
-  // si tous les jeux sont verrouillés, on affiche le bilan
   if (missionLocked.size === 4) renderEndScreen();
 }
 function applyFailure(msg = "Réponse incorrecte.") {
@@ -353,7 +298,6 @@ function validerQCM(index) {
   logResult(index, ok, answerText);
   ok ? applySuccess(index, m) : applyFailure("Mauvaise réponse ou incomplète.");
 }
-
 function validerChoix(index) {
   if (isLocked(index)) return showFeedback(false, "Ce jeu a déjà été validé.");
   const m = missions[index];
@@ -368,7 +312,6 @@ function validerChoix(index) {
   logResult(index, ok, answerText);
   ok ? applySuccess(index, m) : applyFailure("Mauvais choix.");
 }
-
 function validerTexte(index) {
   if (isLocked(index)) return showFeedback(false, "Ce jeu a déjà été validé.");
   const m = missions[index];
@@ -378,17 +321,6 @@ function validerTexte(index) {
   ajouterMemo("Réponse", v);
   logResult(index, true, v);
   applySuccess(index, m);
-}
-
-function validerParMJ(index, accepte) {
-  if (isLocked(index)) return showFeedback(false, "Ce jeu a déjà été validé.");
-  const m = missions[index];
-  const v = document.getElementById("reponse-texte")?.value.trim() || "";
-  if (v) ajouterMemo("Réponse", v);
-
-  logResult(index, !!accepte, v);
-  if (accepte) applySuccess(index, m);
-  else applyFailure("Refusé par le MJ.");
 }
 
 /* =========================================================
@@ -413,16 +345,6 @@ function renderEndScreen() {
 }
 
 function resetGame() {
-  const alsoResetRoles = window.confirm(
-    "Souhaites-tu aussi réaffecter les rôles ?\n\nOK = Oui, on vide le formulaire et on le re-remplit\nAnnuler = Non, on garde les rôles actuels"
-  );
-  if (alsoResetRoles) {
-    try {
-      localStorage.removeItem("aqse_players");
-      localStorage.removeItem("aqse_players_multi");
-    } catch (e) {}
-  }
-
   etatDuJeu = {
     etapesTerminees: [],
     missionActuelle: null,
@@ -432,11 +354,9 @@ function resetGame() {
     _jeu3: {},
     _jeu4: {},
   };
-  stopTimer();
   missionLocked.clear();
   results.length = 0;
   indicateurs.xp = 0;
-
   renderProgress();
   renderTimeline();
   clearMemo();
@@ -448,14 +368,6 @@ function resetGame() {
   document.getElementById(
     "mission-body"
   ).innerHTML = `<p>Choisis un jeu pour commencer.</p>`;
-
-  // Réafficher l’overlay si demandé et présent dans le HTML
-  const hasOverlay = !!document.getElementById("roles-overlay");
-  if (hasOverlay) {
-    if (typeof setupRolesUI === "function") setupRolesUI();
-    if (alsoResetRoles && typeof showRolesOverlay === "function")
-      showRolesOverlay(true);
-  }
 }
 
 /* =========================================================
@@ -543,7 +455,6 @@ function renderBrainstorm(index) {
       }
     });
     nextBtn.onclick = () => {
-      // Sauvegarde dans le mémo
       if (s.ideas.length) ajouterMemo("Idées saisies", s.ideas.join(", "));
       if (s.selected.length) {
         const sel = s.selected.map((i) => s.ideas[i]).join(", ");
@@ -612,13 +523,10 @@ function renderBrainstorm(index) {
     };
     document.getElementById("bs-validate").onclick = () => {
       const m = missions[index];
-
-      // Mémo des tags (idée → pôle)
       const mapping = selectedIdeas
         .map((idea, k) => `${idea} → ${s.tags[k] || poles[0]}`)
         .join("<br>");
       ajouterMemo("Attribution par pôle", mapping);
-
       logResult(
         index,
         true,
@@ -634,7 +542,7 @@ function renderBrainstorm(index) {
 }
 
 /* =========================================================
-   JEU 2 — 7 étapes (ajout Étape 7 : entreprise visée)
+   JEU 2 — 7 étapes (E6 clarifiée + réponses libres par pôle)
 ========================================================= */
 function renderJeu2(index) {
   const key = `_jeu2_${index}`;
@@ -653,7 +561,7 @@ function renderJeu2(index) {
 
   body.innerHTML += header();
 
-  // 1) Réponse libre par Présidence/Tréso/SecG
+  // 1) Cadrage initial (libre)
   if (S.step === 1) {
     body.innerHTML += `
       <div class="card">
@@ -672,7 +580,7 @@ function renderJeu2(index) {
     return;
   }
 
-  // 2) Réponse libre par Présidence
+  // 2) Vision & objectifs (Présidence)
   if (S.step === 2) {
     body.innerHTML += `
       <div class="card">
@@ -691,49 +599,163 @@ function renderJeu2(index) {
     return;
   }
 
-  // 3) QCM commun — stratégie de prospection
+  // 3) *** NOUVEAU *** Tableau dynamique — Qui prospecte quelles parties prenantes ?
   if (S.step === 3) {
-    const opts = [
-      "Prospection hebdo structurée (2h x 2 / semaine)",
-      "Prospection uniquement à l’approche des échéances",
-      "Aucune prospection, attendre l’inbound",
+    // Liste des secteurs (colonne 1) et des parties intéressées (colonne 3)
+    const sectors = [
+      "Industrie (Agroalimentaire, Chimie, Pétrochimie…)",
+      "Construction et BTP",
+      "Énergie et Environnement",
+      "Services et Commerces",
+      "Santé et Social",
+      "Administration & collectivités",
+      "Informatique & Nouvelles Technologies",
+      "Agriculture",
+      "Startups & TPE/PME",
+      "Éducation et formation",
+      "Luxe & mode",
+      "Industrie minière & extractive",
+      "Secteur maritime & portuaire",
+      "Tourisme & loisirs durables",
+      "Événementiel",
+      "Centres de recherche & labos (incl. contrôle qualité)",
+      "Centres commerciaux & immobilier (incl. audits sécurité)",
+      "Marché public",
+      "Supply‑chain / Logistique",
     ];
+    const stakeholders = [
+      "ESAIP",
+      "Alumnis ESAIP",
+      "Partenaires ESAIP",
+      "Alumnis Junior",
+      "Partenaires Junior (actuels & anciens)",
+      "Anciens clients",
+      "Autres JE (certifiées pour audit)",
+      "Entreprises de stages/alternances",
+      "Professeurs / intervenants",
+      "Contacts perso",
+    ];
+
     body.innerHTML += `
       <div class="card">
-        <h4>Étape 3 — QCM commun</h4>
-        <p><strong>Quelle stratégie de prospection adoptez‑vous ?</strong></p>
-        ${opts
-          .map(
-            (o, i) => `
-          <label class="option">
-            <input type="radio" name="j2s3" value="${i}">
-            <span>${o}</span>
-          </label>`
-          )
-          .join("")}
-        <div class="actions"><button class="btn" id="ok3">Suite</button></div>
+        <h4>Étape 3 — Qui prospecte quelles parties prenantes ?</h4>
+        <p class="muted" style="margin-top:4px">
+          <strong>Consigne :</strong> <em>Écrivez le nom des pôles dans les cases que vous souhaitez</em>.
+        </p>
+        <div style="overflow:auto; margin-top:8px;">
+          <table style="width:100%; border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="text-align:left; padding:8px; border-bottom:1px solid rgba(255,255,255,.12)">Secteurs d'activités</th>
+                <th style="text-align:left; padding:8px; border-bottom:1px solid rgba(255,255,255,.12)">Responsable</th>
+                <th style="text-align:left; padding:8px; border-bottom:1px solid rgba(255,255,255,.12)">Parties intéressées</th>
+                <th style="text-align:left; padding:8px; border-bottom:1px solid rgba(255,255,255,.12)">Responsable</th>
+              </tr>
+            </thead>
+            <tbody id="j2s3-body"></tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button class="btn" id="ok3">Suite</button>
+        </div>
       </div>`;
+
+    const tb = document.getElementById("j2s3-body");
+
+    // Construit les lignes
+    sectors.forEach((sec, i) => {
+      const row = document.createElement("tr");
+
+      function td(txt) {
+        const d = document.createElement("td");
+        d.style.padding = "8px";
+        d.style.borderBottom = "1px solid rgba(255,255,255,.06)";
+        d.innerHTML = txt;
+        return d;
+      }
+      // input helper
+      function inputCell(cls) {
+        const d = document.createElement("td");
+        d.style.padding = "8px";
+        d.style.borderBottom = "1px solid rgba(255,255,255,.06)";
+        const inp = document.createElement("input");
+        inp.className = `input ${cls}`;
+        inp.placeholder = "ex : Présidence";
+        inp.dataset.row = String(i);
+        d.appendChild(inp);
+        return d;
+      }
+
+      row.appendChild(td(`<strong>${sec}</strong>`));
+      row.appendChild(inputCell("j2s3-resp-secteur"));
+
+      const stkh = stakeholders[i % stakeholders.length];
+      row.appendChild(td(stkh));
+      row.appendChild(inputCell("j2s3-resp-partie"));
+
+      tb.appendChild(row);
+    });
+
+    // Si retour sur l'étape, recharger les anciennes saisies
+    if (S.data.s3 && Array.isArray(S.data.s3.rows)) {
+      S.data.s3.rows.forEach((r, idx) => {
+        const a = tb.querySelector(`.j2s3-resp-secteur[data-row="${idx}"]`);
+        const b = tb.querySelector(`.j2s3-resp-partie[data-row="${idx}"]`);
+        if (a) a.value = r.respSecteur || "";
+        if (b) b.value = r.respPartie || "";
+      });
+    }
+
     document.getElementById("ok3").onclick = () => {
-      const v = document.querySelector('input[name="j2s3"]:checked');
-      if (!v) return showFeedback(false, "Choisis une option.");
-      S.data.s3 = parseInt(v.value, 10);
-      ajouterMemo("Stratégie de prospection", opts[S.data.s3]);
+      // Collecte des données
+      const rows = [];
+      const aList = tb.querySelectorAll(".j2s3-resp-secteur");
+      const bList = tb.querySelectorAll(".j2s3-resp-partie");
+      for (let i = 0; i < sectors.length; i++) {
+        rows.push({
+          secteur: sectors[i],
+          parties: stakeholders[i % stakeholders.length],
+          respSecteur: aList[i]?.value.trim() || "",
+          respPartie: bList[i]?.value.trim() || "",
+        });
+      }
+      S.data.s3 = { rows };
+
+      // Mémo : quelques infos utiles
+      const filled =
+        rows.filter((r) => r.respSecteur || r.respPartie).length || 0;
+      ajouterMemo(
+        "Attribution prospection",
+        `${filled} ligne(s) renseignée(s)`
+      );
+      const preview = rows
+        .filter((r) => r.respSecteur || r.respPartie)
+        .slice(0, 4)
+        .map(
+          (r) =>
+            `${r.secteur} → <em>${r.respSecteur || "—"}</em> / ${
+              r.parties
+            } → <em>${r.respPartie || "—"}</em>`
+        )
+        .join("<br>");
+      if (preview) ajouterMemo("Exemples (aperçu)", preview);
+
       next();
     };
     return;
   }
 
-  // 4) QCM commun — rythme
+  // 4) QCM — rythme
   if (S.step === 4) {
     const opts = [
       "1 fois / semaine",
       "3 fois / semaine, 15 min",
-      "Tous les jours (sauf week‑end), 15 min",
+      "Tous les jours (sauf week-end), 15 min",
       "1 fois / mois",
     ];
     body.innerHTML += `
       <div class="card">
-        <h4>Étape 4 — QCM commun</h4>
+        <h4>Étape 4 — QCM</h4>
         <p><strong>Rythme de prospection pour tenir l’objectif CA ?</strong></p>
         ${opts
           .map(
@@ -756,11 +778,11 @@ function renderJeu2(index) {
     return;
   }
 
-  // 5) Brainstorm — canaux / événements business
+  // 5) Brainstorm — canaux / événements
   if (S.step === 5) {
     body.innerHTML += `
       <div class="card">
-        <h4>Étape 5 — Brainstorm commun</h4>
+        <h4>Étape 5 — Brainstorm</h4>
         <p><strong>Quels canaux / événements utiliser pour trouver du business ?</strong></p>
         <label class="option"><input id="j2s5in" class="input" placeholder="Ajoute un canal puis Entrée"></label>
         <div id="j2s5list" class="memo-body"></div>
@@ -801,7 +823,7 @@ function renderJeu2(index) {
     return;
   }
 
-  // 6) Budget par pôle + justification
+  // 6) ✅ Question clarifiée + réponse libre par pôle
   if (S.step === 6) {
     const poles = [
       "Présidence",
@@ -812,45 +834,57 @@ function renderJeu2(index) {
     ];
     body.innerHTML += `
       <div class="card">
-        <h4>Étape 6 — Budget par pôle + Pourquoi ?</h4>
-        <p>Indique un montant (en €) pour chaque pôle, puis explique vos choix.</p>
+        <h4>Étape 6 — Budget & allocation par pôle</h4>
+        <p><strong>Quel pourrait être le budget à allouer dans le business et qu’est-ce qu’il faut allouer sur votre mandat ?</strong></p>
         <div id="j2s6grid" class="memo-body"></div>
-        <textarea id="j2s6why" class="textarea" placeholder="Pourquoi cette répartition ?"></textarea>
+        <textarea id="j2s6why" class="textarea" placeholder="Expliquez votre logique d’allocation globale…"></textarea>
         <div class="actions"><button class="btn" id="ok6">Suite</button></div>
       </div>`;
     const grid = document.getElementById("j2s6grid");
-    if (!S.data.s6) S.data.s6 = { budget: {}, why: "" };
+    if (!S.data.s6) S.data.s6 = { budget: {}, notes: {}, why: "" };
     poles.forEach((p) => {
       const row = document.createElement("div");
       row.className = "option";
       row.innerHTML = `
         <div style="flex:1"><strong>${p}</strong></div>
-        <input type="number" min="0" class="input" id="j2s6-${p}" placeholder="€" style="max-width:160px">
+        <input type="number" min="0" class="input" id="j2s6-${p}-€" placeholder="Budget (€)" style="max-width:160px">
       `;
+      const note = document.createElement("textarea");
+      note.className = "textarea";
+      note.placeholder = `Que faut-il allouer sur le mandat pour ${p} ? (réponse libre)`;
+      note.id = `j2s6-${p}-txt`;
+      note.style.marginTop = "8px";
+      const wrap = document.createElement("div");
+      wrap.style.flex = "1";
+      wrap.appendChild(note);
+      row.appendChild(wrap);
       grid.appendChild(row);
     });
     document.getElementById("ok6").onclick = () => {
       const budget = {};
+      const notes = {};
       poles.forEach((p) => {
-        const v = parseFloat(document.getElementById(`j2s6-${p}`).value || "0");
+        const v = parseFloat(
+          document.getElementById(`j2s6-${p}-€`).value || "0"
+        );
         budget[p] = isNaN(v) ? 0 : v;
+        notes[p] = document.getElementById(`j2s6-${p}-txt`).value.trim();
       });
       const why = document.getElementById("j2s6why").value.trim();
-      if (!why) return showFeedback(false, "Explique tes choix.");
-      S.data.s6 = { budget, why };
+      if (!why) return showFeedback(false, "Expliquez votre logique globale.");
+      S.data.s6 = { budget, notes, why };
 
-      // Mémo détaillé par pôle + pourquoi
       poles.forEach((p) => {
         ajouterMemo(`${p} — budget`, `${budget[p]} €`);
+        if (notes[p]) ajouterMemo(`${p} — allocation mandat`, notes[p]);
       });
       ajouterMemo("Pourquoi cette répartition", why);
-
-      next(); // -> Étape 7
+      next();
     };
     return;
   }
 
-  // 7) Nouvelle étape : Entreprise chez qui obtenir une mission
+  // 7) Cible client prioritaire
   if (S.step === 7) {
     body.innerHTML += `
       <div class="card">
@@ -867,10 +901,8 @@ function renderJeu2(index) {
         return showFeedback(false, "Indiquez une entreprise cible.");
       if (!why) return showFeedback(false, "Expliquez brièvement pourquoi.");
       S.data.s7 = { company, why };
-
       ajouterMemo("Entreprise cible", company);
       ajouterMemo("Pourquoi elle", why);
-
       logResult(index, true, JSON.stringify(S.data));
       applySuccess(index, m);
     };
@@ -898,26 +930,52 @@ function renderJeu3(index) {
 
   body.innerHTML += header();
 
-  // 1) Maintenir la cohésion à distance (libre ; mémo)
+  // 1) ✅ Brainstorm cohésion
   if (S.step === 1) {
     body.innerHTML += `
       <div class="card">
-        <h4>Étape 1 — Maintenir la cohésion à distance</h4>
-        <p><strong>Quelles actions concrètes mettez‑vous en place (outils/rituels) ?</strong></p>
-        <textarea id="j3s1" class="textarea" placeholder="Ex : point hebdo, coffee visio, binômes, Discord…"></textarea>
-        <div class="actions"><button class="btn" id="ok1">Suite</button></div>
+        <h4>Étape 1 — Brainstorm Cohésion</h4>
+        <p><strong>Listez toutes les idées de rituels/actions pour la cohésion (présentiel & distance).</strong></p>
+        <label class="option"><input id="j3s1in" class="input" placeholder="Ajoute une idée puis Entrée"></label>
+        <div id="j3s1list" class="memo-body"></div>
+        <div class="actions"><button class="btn" id="ok1" disabled>Suite</button></div>
       </div>`;
+    const list = document.getElementById("j3s1list");
+    const input = document.getElementById("j3s1in");
+    if (!S.data.s1) S.data.s1 = [];
+    function renderList() {
+      list.innerHTML = "";
+      if (!S.data.s1.length)
+        list.innerHTML = `<p class="muted">Aucune idée ajoutée.</p>`;
+      else {
+        S.data.s1.forEach((c, i) => {
+          const line = document.createElement("div");
+          line.className = "memo-line";
+          line.innerHTML = `${c} <span class="muted">#${i + 1}</span>`;
+          list.appendChild(line);
+        });
+      }
+      document.getElementById("ok1").disabled = S.data.s1.length < 1;
+    }
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const v = input.value.trim();
+        if (v) {
+          S.data.s1.push(v);
+          input.value = "";
+          renderList();
+        }
+      }
+    });
     document.getElementById("ok1").onclick = () => {
-      const v = document.getElementById("j3s1").value.trim();
-      if (!v) return showFeedback(false, "Réponse attendue.");
-      S.data.s1 = v;
-      ajouterMemo("Cohésion à distance", v);
+      ajouterMemo("Idées de cohésion", S.data.s1.join(", "));
       next();
     };
+    renderList();
     return;
   }
 
-  // 2) Fréquences réunions & suivis (libre ; mémo)
+  // 2) Fréquences générales (libre)
   if (S.step === 2) {
     body.innerHTML += `
       <div class="card">
@@ -936,100 +994,98 @@ function renderJeu3(index) {
     return;
   }
 
-  // 3) QCM — pack de rituels (mémo)
+  // 3) ✅ Bonne question (libre)
   if (S.step === 3) {
-    const opts = [
-      "Réunion d’équipe hebdo + 1:1 bimensuel + canal info centralisé",
-      "Réunion mensuelle uniquement",
-      "Pas de rituels, au fil de l’eau",
-    ];
     body.innerHTML += `
       <div class="card">
-        <h4>Étape 3 — QCM (rituels)</h4>
-        <p><strong>Quel pack de rituels te semble le plus adapté au mandat ?</strong></p>
-        ${opts
-          .map(
-            (o, i) => `
-          <label class="option">
-            <input type="radio" name="j3s3" value="${i}">
-            <span>${o}</span>
-          </label>`
-          )
-          .join("")}
+        <h4>Étape 3 — Organisation des échanges</h4>
+        <p><strong>Quelle est la fréquence des réunions ainsi que des prises de contacts avec chaque membre ?</strong></p>
+        <textarea id="j3s3" class="textarea" placeholder="Détaille les rythmes par pôle/membre si utile…"></textarea>
         <div class="actions"><button class="btn" id="ok3">Suite</button></div>
       </div>`;
     document.getElementById("ok3").onclick = () => {
-      const v = document.querySelector('input[name="j3s3"]:checked');
-      if (!v) return showFeedback(false, "Choisis une option.");
-      S.data.s3 = parseInt(v.value, 10);
-      ajouterMemo("Pack de rituels", opts[S.data.s3]);
+      const v = document.getElementById("j3s3").value.trim();
+      if (!v) return showFeedback(false, "Réponse attendue.");
+      S.data.s3 = v;
+      ajouterMemo("Fréquences (réunions & contacts)", v);
       next();
     };
     return;
   }
 
-  // 4) Budget cohésion par pôles + total (mémo)
+  // 4) ✅ Budget cohésion par pôles + Total (affiché UNE seule fois)
   if (S.step === 4) {
     body.innerHTML += `
       <div class="card">
         <h4>Étape 4 — Budget alloué pour la cohésion</h4>
-        <p class="muted">Saisissez le budget par pôle. Le total est calculé automatiquement.</p>
+        <p class="muted">Saisissez le budget par pôle. Le récapitulatif s’affiche juste en dessous, avec le total.</p>
         <div id="j3s4grid" class="memo-body"></div>
-        <div class="option"><div style="flex:1"><strong>Total</strong></div><input id="j3s4total" class="input" type="number" min="0" readonly style="max-width:160px"></div>
+        <div id="j3s4recap" class="memo-body" style="margin-top:8px"></div>
         <div class="actions"><button class="btn" id="ok4">Valider le Jeu 3</button></div>
       </div>`;
-    const poles = ["Trésorerie", "Secrétariat Général", "Reste de l'équipe"];
+
+    const champs = [
+      { id: "Tresorerie", label: "Trésorerie" },
+      { id: "SecG", label: "Secrétariat Général" },
+      { id: "Presidence", label: "Présidence" },
+      { id: "Evenementiel", label: "Événementiel" },
+      { id: "Communication", label: "Communication" },
+    ];
+
     const grid = document.getElementById("j3s4grid");
+    const recap = document.getElementById("j3s4recap");
 
-    if (!S.data.s4)
-      S.data.s4 = { budgets: { Treso: 0, SecG: 0, Reste: 0 }, total: 0 };
+    if (!S.data.s4) {
+      S.data.s4 = {
+        Tresorerie: 0,
+        SecG: 0,
+        Presidence: 0,
+        Evenementiel: 0,
+        Communication: 0,
+      };
+    }
 
-    // Build inputs
-    const ids = ["treso", "secg", "reste"];
-    poles.forEach((p, k) => {
+    // champs de saisie
+    champs.forEach((c) => {
       const row = document.createElement("div");
       row.className = "option";
       row.innerHTML = `
-        <div style="flex:1"><strong>${p}</strong></div>
-        <input id="j3s4-${ids[k]}" class="input" type="number" min="0" placeholder="€" style="max-width:160px">
+        <div style="flex:1"><strong>${c.label}</strong></div>
+        <input type="number" min="0" class="input" id="j3s4-${c.id}" placeholder="€" style="max-width:160px">
       `;
       grid.appendChild(row);
     });
 
-    function recalc() {
-      const a = parseFloat(document.getElementById("j3s4-treso").value || "0");
-      const b = parseFloat(document.getElementById("j3s4-secg").value || "0");
-      const c = parseFloat(document.getElementById("j3s4-reste").value || "0");
-      const total =
-        (isNaN(a) ? 0 : a) + (isNaN(b) ? 0 : b) + (isNaN(c) ? 0 : c);
-      document.getElementById("j3s4total").value = total;
+    function renderRecap() {
+      recap.innerHTML = ""; // ← on nettoie à chaque fois (pas de doublon)
+      let total = 0;
+
+      champs.forEach((c) => {
+        const v = parseFloat(
+          document.getElementById(`j3s4-${c.id}`).value || "0"
+        );
+        S.data.s4[c.id] = isNaN(v) ? 0 : v;
+        total += S.data.s4[c.id];
+      });
+
+      // Ligne Total (unique)
+      const totalLine = document.createElement("div");
+      totalLine.className = "memo-line";
+      totalLine.innerHTML = `<strong>Total :</strong> ${total} €`;
+      recap.appendChild(totalLine);
     }
-    ids.forEach((id) =>
-      document.getElementById(`j3s4-${id}`).addEventListener("input", recalc)
-    );
+
+    grid.addEventListener("input", renderRecap);
+    renderRecap();
 
     document.getElementById("ok4").onclick = () => {
-      const a = parseFloat(document.getElementById("j3s4-treso").value || "0");
-      const b = parseFloat(document.getElementById("j3s4-secg").value || "0");
-      const c = parseFloat(document.getElementById("j3s4-reste").value || "0");
-      const total =
-        (isNaN(a) ? 0 : a) + (isNaN(b) ? 0 : b) + (isNaN(c) ? 0 : c);
-
-      S.data.s4 = {
-        budgets: {
-          Treso: isNaN(a) ? 0 : a,
-          SecG: isNaN(b) ? 0 : b,
-          Reste: isNaN(c) ? 0 : c,
-        },
-        total,
-      };
-
-      // Mémo
-      ajouterMemo("Cohésion — Trésorerie", `${S.data.s4.budgets.Treso} €`);
-      ajouterMemo("Cohésion — Sec. Général", `${S.data.s4.budgets.SecG} €`);
-      ajouterMemo("Cohésion — Reste", `${S.data.s4.budgets.Reste} €`);
-      ajouterMemo("Cohésion — Total", `${S.data.s4.total} €`);
-
+      // Mémo propre : une ligne par pôle + total
+      let total = 0;
+      champs.forEach((c) => {
+        total += S.data.s4[c.id];
+        ajouterMemo(`Budget cohésion — ${c.label}`, `${S.data.s4[c.id]} €`);
+      });
+      ajouterMemo("Budget cohésion — Total", `${total} €`);
       logResult(index, true, JSON.stringify(S.data));
       applySuccess(index, m);
     };
@@ -1038,7 +1094,7 @@ function renderJeu3(index) {
 }
 
 /* =========================================================
-   JEU 4 — Partenariats (7 étapes)
+   JEU 4 — Partenariats (Étape 1 = Brainstorm)
 ========================================================= */
 function renderJeu4(index) {
   const key = `_jeu4_${index}`;
@@ -1047,32 +1103,54 @@ function renderJeu4(index) {
   const m = missions[index];
   const body = document.getElementById("mission-body");
 
-  function header() {
-    return `<p class="muted">Étape ${S.step} / 7</p>`;
-  }
   function next() {
     S.step += 1;
     renderJeu4(index);
   }
 
-  body.innerHTML += header();
-
-  // 1) Partenaires actuels (libre ; mémo)
+  // 1) ✅ Brainstorm partenariats
   if (S.step === 1) {
     body.innerHTML += `
+      <p class="muted">Étape 1 / 3</p>
       <div class="card">
-        <h4>Étape 1 — Partenaires actuels</h4>
-        <p><strong>Qui sont les partenaires actuels de JCAQSE ?</strong></p>
-        <textarea id="j4s1" class="textarea" placeholder="Ex : Préfas Incendie, BNP Paribas, PROPULSE, JPM…"></textarea>
-        <div class="actions"><button class="btn" id="ok1">Suite</button></div>
+        <h4>Étape 1 — Brainstorm Partenariats</h4>
+        <p><strong>Listez des pistes de partenaires (écoles, entreprises, institutions, assos, etc.).</strong></p>
+        <label class="option"><input id="j4s1in" class="input" placeholder="Ajoute une idée puis Entrée"></label>
+        <div id="j4s1list" class="memo-body"></div>
+        <div class="actions"><button class="btn" id="ok1" disabled>Suite</button></div>
       </div>`;
+    const list = document.getElementById("j4s1list");
+    const input = document.getElementById("j4s1in");
+    if (!S.data.s1) S.data.s1 = [];
+    function renderList() {
+      list.innerHTML = "";
+      if (!S.data.s1.length)
+        list.innerHTML = `<p class="muted">Aucune piste ajoutée.</p>`;
+      else {
+        S.data.s1.forEach((c, i) => {
+          const line = document.createElement("div");
+          line.className = "memo-line";
+          line.innerHTML = `${c} <span class="muted">#${i + 1}</span>`;
+          list.appendChild(line);
+        });
+      }
+      document.getElementById("ok1").disabled = S.data.s1.length < 1;
+    }
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const v = input.value.trim();
+        if (v) {
+          S.data.s1.push(v);
+          input.value = "";
+          renderList();
+        }
+      }
+    });
     document.getElementById("ok1").onclick = () => {
-      const v = document.getElementById("j4s1").value.trim();
-      if (!v) return showFeedback(false, "Réponse attendue.");
-      S.data.s1 = v;
-      ajouterMemo("Partenaires actuels", v);
+      ajouterMemo("Pistes partenariats", S.data.s1.join(", "));
       next();
     };
+    renderList();
     return;
   }
 
@@ -1244,129 +1322,14 @@ function renderJeu4(index) {
 }
 
 /* =========================================================
-   OVERLAY RÔLES (si présent dans ton HTML)
-   (si tu utilises un autre overlay, laisse juste ces 2 hooks)
+   BOOT
 ========================================================= */
-function showRolesOverlay(show = true) {
-  const ov = document.getElementById("roles-overlay");
-  if (ov) ov.classList.toggle("hidden", !show);
-}
-function setupRolesUI() {
-  // Si tu as déjà ton implémentation détaillée, elle prendra la main.
-  // Ici on affiche l’overlay si aucun joueur n’est enregistré.
-  const hasOverlay = !!document.getElementById("roles-overlay");
-  if (!hasOverlay) return;
-  try {
-    const multi = JSON.parse(
-      localStorage.getItem("aqse_players_multi") || "{}"
-    );
-    const hasSomeone = Object.values(multi).some((arr) =>
-      Array.isArray(arr) ? arr.length : !!arr
-    );
-    showRolesOverlay(!hasSomeone);
-  } catch {
-    showRolesOverlay(true);
-  }
-}
-
-/* =========================================================
-   INIT
-========================================================= */
-window.onload = () => {
+window.addEventListener("DOMContentLoaded", () => {
   computeXpMax();
   renderProgress();
-
-  // overlay rôles (si présent dans le HTML)
-  setupRolesUI();
-
   renderTimeline();
-  clearMemo();
-  const end = document.getElementById("end-screen");
-  if (end) {
-    end.style.display = "none";
-    end.innerHTML = "";
-  }
-  const body = document.getElementById("mission-body");
-  if (body) body.innerHTML = `<p>Choisis un jeu pour commencer.</p>`;
 
-  // bouton rejouer
-  const btnReset = document.getElementById("btn-reset");
-  if (btnReset) btnReset.onclick = resetGame;
-};
-
-function setupRolesUI() {
-  const form = document.getElementById("roles-form");
-
-  // Charger les sauvegardes
-  const saved = JSON.parse(localStorage.getItem("aqse_players_multi") || "{}");
-  Object.entries(saved).forEach(([role, names]) => {
-    const block = form.querySelector(`.role-block[data-role="${role}"]`);
-    if (block) {
-      names.forEach((name) => addNamePill(block, name));
-    }
-  });
-
-  // Gestion ajout
-  form.querySelectorAll(".add-name").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      const block = e.target.closest(".role-block");
-      const input = block.querySelector("input");
-      const names = input.value
-        .split(",")
-        .map((n) => n.trim())
-        .filter(Boolean);
-      names.forEach((n) => addNamePill(block, n));
-      input.value = "";
-    });
-  });
-
-  // Sauvegarde
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const data = {};
-    form.querySelectorAll(".role-block").forEach((block) => {
-      const role = block.dataset.role;
-      const pills = [...block.querySelectorAll(".roles-pill span")].map(
-        (s) => s.textContent
-      );
-      data[role] = pills;
-    });
-    localStorage.setItem("aqse_players_multi", JSON.stringify(data));
-    document.getElementById("roles-overlay").classList.add("hidden");
-  });
-
-  // Reset
-  document.getElementById("roles-reset").addEventListener("click", () => {
-    localStorage.removeItem("aqse_players_multi");
-    form
-      .querySelectorAll(".roles-list")
-      .forEach((list) => (list.innerHTML = ""));
-  });
-}
-
-function addNamePill(block, name) {
-  const list = block.querySelector(".roles-list");
-  const pill = document.createElement("div");
-  pill.className = "roles-pill";
-  pill.innerHTML = `<span>${name}</span> <button type="button">×</button>`;
-  pill.querySelector("button").addEventListener("click", () => pill.remove());
-  list.appendChild(pill);
-}
-
-// Lancer UI rôles au chargement
-document.addEventListener("DOMContentLoaded", setupRolesUI);
-
-/* =========================================================
-   DIVERS
-========================================================= */
-function disableCurrentInputs() {
-  document
-    .querySelectorAll(
-      "#mission-body input, #mission-body textarea, #mission-body button"
-    )
-    .forEach((el) => {
-      el.disabled = true;
-      el.style.opacity = 0.6;
-      el.style.cursor = "not-allowed";
-    });
-}
+  // Bouton “Rejouer”
+  const resetBtn = document.getElementById("btn-reset");
+  if (resetBtn) resetBtn.addEventListener("click", resetGame);
+});
