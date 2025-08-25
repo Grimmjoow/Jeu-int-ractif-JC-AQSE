@@ -492,7 +492,7 @@ function renderBrainstorm(index) {
           <h4>Instructions</h4>
           <ul class="muted">
             <li>Ajoute un maximum d’idées (Entrée pour valider chacune).</li>
-            <li>Sélectionne ensuite <strong>5 de tes idées</strong> parmis celle que tu as choisis (cliquer pour sélectionner/désélectionner).</li>
+            <li>Sélectionne ensuite <strong>5 idées</strong> (cliquer pour sélectionner/désélectionner).</li>
           </ul>
         </div>
       </div>
@@ -543,10 +543,8 @@ function renderBrainstorm(index) {
       }
     });
     nextBtn.onclick = () => {
-      // Mémo des idées + sélection avant de passer à l’étape 2
-      if (s.ideas.length) {
-        ajouterMemo("Idées saisies", s.ideas.join(", "));
-      }
+      // Sauvegarde dans le mémo
+      if (s.ideas.length) ajouterMemo("Idées saisies", s.ideas.join(", "));
       if (s.selected.length) {
         const sel = s.selected.map((i) => s.ideas[i]).join(", ");
         ajouterMemo("Sélection (5)", sel);
@@ -636,7 +634,7 @@ function renderBrainstorm(index) {
 }
 
 /* =========================================================
-   JEU 2 — 7 étapes (Étape 3 = tableau dyn. “Qui prospecte qui ?”)
+   JEU 2 — 7 étapes (ajout Étape 7 : entreprise visée)
 ========================================================= */
 function renderJeu2(index) {
   const key = `_jeu2_${index}`;
@@ -693,147 +691,33 @@ function renderJeu2(index) {
     return;
   }
 
-  // 3) *** NOUVEAU *** Tableau dynamique — Qui prospecte quelles parties prenantes ?
+  // 3) QCM commun — stratégie de prospection
   if (S.step === 3) {
-    // Liste des secteurs (colonne 1) et des parties intéressées (colonne 3)
-    const sectors = [
-      "Industrie (Agroalimentaire, Chimie, Pétrochimie…)",
-      "Construction et BTP",
-      "Énergie et Environnement",
-      "Services et Commerces",
-      "Santé et Social",
-      "Administration & collectivités",
-      "Informatique & Nouvelles Technologies",
-      "Agriculture",
-      "Startups & TPE/PME",
-      "Éducation et formation",
-      "Luxe & mode",
-      "Industrie minière & extractive",
-      "Secteur maritime & portuaire",
-      "Tourisme & loisirs durables",
-      "Événementiel",
-      "Centres de recherche & labos (incl. contrôle qualité)",
-      "Centres commerciaux & immobilier (incl. audits sécurité)",
-      "Marché public",
-      "Supply‑chain / Logistique",
+    const opts = [
+      "Prospection hebdo structurée (2h x 2 / semaine)",
+      "Prospection uniquement à l’approche des échéances",
+      "Aucune prospection, attendre l’inbound",
     ];
-    const stakeholders = [
-      "ESAIP",
-      "Alumnis ESAIP",
-      "Partenaires ESAIP",
-      "Alumnis Junior",
-      "Partenaires Junior (actuels & anciens)",
-      "Anciens clients",
-      "Autres JE (certifiées pour audit)",
-      "Entreprises de stages/alternances",
-      "Professeurs / intervenants",
-      "Contacts perso",
-    ];
-
     body.innerHTML += `
       <div class="card">
-        <h4>Étape 3 — Qui prospecte quelles parties prenantes ?</h4>
-        <p class="muted" style="margin-top:4px">
-          <strong>Consigne :</strong> <em>Écrivez le nom des pôles dans les cases que vous souhaitez</em>.
-        </p>
-        <div style="overflow:auto; margin-top:8px;">
-          <table style="width:100%; border-collapse:collapse;">
-            <thead>
-              <tr>
-                <th style="text-align:left; padding:8px; border-bottom:1px solid rgba(255,255,255,.12)">Secteurs d'activités</th>
-                <th style="text-align:left; padding:8px; border-bottom:1px solid rgba(255,255,255,.12)">Responsable</th>
-                <th style="text-align:left; padding:8px; border-bottom:1px solid rgba(255,255,255,.12)">Parties intéressées</th>
-                <th style="text-align:left; padding:8px; border-bottom:1px solid rgba(255,255,255,.12)">Responsable</th>
-              </tr>
-            </thead>
-            <tbody id="j2s3-body"></tbody>
-          </table>
-        </div>
-        <div class="actions">
-          <button class="btn" id="ok3">Suite</button>
-        </div>
+        <h4>Étape 3 — QCM commun</h4>
+        <p><strong>Quelle stratégie de prospection adoptez‑vous ?</strong></p>
+        ${opts
+          .map(
+            (o, i) => `
+          <label class="option">
+            <input type="radio" name="j2s3" value="${i}">
+            <span>${o}</span>
+          </label>`
+          )
+          .join("")}
+        <div class="actions"><button class="btn" id="ok3">Suite</button></div>
       </div>`;
-
-    const tb = document.getElementById("j2s3-body");
-
-    // Construit les lignes
-    sectors.forEach((sec, i) => {
-      const row = document.createElement("tr");
-
-      function td(txt) {
-        const d = document.createElement("td");
-        d.style.padding = "8px";
-        d.style.borderBottom = "1px solid rgba(255,255,255,.06)";
-        d.innerHTML = txt;
-        return d;
-      }
-      // input helper
-      function inputCell(cls) {
-        const d = document.createElement("td");
-        d.style.padding = "8px";
-        d.style.borderBottom = "1px solid rgba(255,255,255,.06)";
-        const inp = document.createElement("input");
-        inp.className = `input ${cls}`;
-        inp.placeholder = "ex : Présidence";
-        inp.dataset.row = String(i);
-        d.appendChild(inp);
-        return d;
-      }
-
-      row.appendChild(td(`<strong>${sec}</strong>`));
-      row.appendChild(inputCell("j2s3-resp-secteur"));
-
-      const stkh = stakeholders[i % stakeholders.length];
-      row.appendChild(td(stkh));
-      row.appendChild(inputCell("j2s3-resp-partie"));
-
-      tb.appendChild(row);
-    });
-
-    // Si retour sur l'étape, recharger les anciennes saisies
-    if (S.data.s3 && Array.isArray(S.data.s3.rows)) {
-      S.data.s3.rows.forEach((r, idx) => {
-        const a = tb.querySelector(`.j2s3-resp-secteur[data-row="${idx}"]`);
-        const b = tb.querySelector(`.j2s3-resp-partie[data-row="${idx}"]`);
-        if (a) a.value = r.respSecteur || "";
-        if (b) b.value = r.respPartie || "";
-      });
-    }
-
     document.getElementById("ok3").onclick = () => {
-      // Collecte des données
-      const rows = [];
-      const aList = tb.querySelectorAll(".j2s3-resp-secteur");
-      const bList = tb.querySelectorAll(".j2s3-resp-partie");
-      for (let i = 0; i < sectors.length; i++) {
-        rows.push({
-          secteur: sectors[i],
-          parties: stakeholders[i % stakeholders.length],
-          respSecteur: aList[i]?.value.trim() || "",
-          respPartie: bList[i]?.value.trim() || "",
-        });
-      }
-      S.data.s3 = { rows };
-
-      // Mémo : quelques infos utiles
-      const filled =
-        rows.filter((r) => r.respSecteur || r.respPartie).length || 0;
-      ajouterMemo(
-        "Attribution prospection",
-        `${filled} ligne(s) renseignée(s)`
-      );
-      const preview = rows
-        .filter((r) => r.respSecteur || r.respPartie)
-        .slice(0, 4)
-        .map(
-          (r) =>
-            `${r.secteur} → <em>${r.respSecteur || "—"}</em> / ${
-              r.parties
-            } → <em>${r.respPartie || "—"}</em>`
-        )
-        .join("<br>");
-      if (preview) ajouterMemo("Exemples (aperçu)", preview);
-
+      const v = document.querySelector('input[name="j2s3"]:checked');
+      if (!v) return showFeedback(false, "Choisis une option.");
+      S.data.s3 = parseInt(v.value, 10);
+      ajouterMemo("Stratégie de prospection", opts[S.data.s3]);
       next();
     };
     return;
@@ -955,10 +839,10 @@ function renderJeu2(index) {
       if (!why) return showFeedback(false, "Explique tes choix.");
       S.data.s6 = { budget, why };
 
-      const budTxt = poles
-        .map((p) => `${p}: ${S.data.s6.budget[p] || 0} €`)
-        .join(" ; ");
-      ajouterMemo("Budget par pôle", budTxt);
+      // Mémo détaillé par pôle + pourquoi
+      poles.forEach((p) => {
+        ajouterMemo(`${p} — budget`, `${budget[p]} €`);
+      });
       ajouterMemo("Pourquoi cette répartition", why);
 
       next(); // -> Étape 7
@@ -1014,12 +898,12 @@ function renderJeu3(index) {
 
   body.innerHTML += header();
 
-  // 1) Maintenir la cohésion à distance
+  // 1) Maintenir la cohésion à distance (libre ; mémo)
   if (S.step === 1) {
     body.innerHTML += `
       <div class="card">
         <h4>Étape 1 — Maintenir la cohésion à distance</h4>
-        <p><strong>Quelles actions concrètes mettez‑vous en place (outils/rituels)?</strong></p>
+        <p><strong>Quelles actions concrètes mettez‑vous en place (outils/rituels) ?</strong></p>
         <textarea id="j3s1" class="textarea" placeholder="Ex : point hebdo, coffee visio, binômes, Discord…"></textarea>
         <div class="actions"><button class="btn" id="ok1">Suite</button></div>
       </div>`;
@@ -1033,7 +917,7 @@ function renderJeu3(index) {
     return;
   }
 
-  // 2) Fréquences réunions & suivis
+  // 2) Fréquences réunions & suivis (libre ; mémo)
   if (S.step === 2) {
     body.innerHTML += `
       <div class="card">
@@ -1052,7 +936,7 @@ function renderJeu3(index) {
     return;
   }
 
-  // 3) QCM — pack de rituels
+  // 3) QCM — pack de rituels (mémo)
   if (S.step === 3) {
     const opts = [
       "Réunion d’équipe hebdo + 1:1 bimensuel + canal info centralisé",
@@ -1084,23 +968,67 @@ function renderJeu3(index) {
     return;
   }
 
-  // 4) Plan avant décembre + budget cohésion
+  // 4) Budget cohésion par pôles + total (mémo)
   if (S.step === 4) {
     body.innerHTML += `
       <div class="card">
-        <h4>Étape 4 — Plan avant fin décembre + budget</h4>
-        <textarea id="j3s4plan" class="textarea" placeholder="Onboarding, séminaire, activités, etc."></textarea>
-        <label class="option"><span>Budget cohésion (€) :</span> <input id="j3s4bud" type="number" min="0" class="input" style="max-width:160px"></label>
+        <h4>Étape 4 — Budget alloué pour la cohésion</h4>
+        <p class="muted">Saisissez le budget par pôle. Le total est calculé automatiquement.</p>
+        <div id="j3s4grid" class="memo-body"></div>
+        <div class="option"><div style="flex:1"><strong>Total</strong></div><input id="j3s4total" class="input" type="number" min="0" readonly style="max-width:160px"></div>
         <div class="actions"><button class="btn" id="ok4">Valider le Jeu 3</button></div>
       </div>`;
-    document.getElementById("ok4").onclick = () => {
-      const plan = document.getElementById("j3s4plan").value.trim();
-      const bud = parseFloat(document.getElementById("j3s4bud").value || "0");
-      if (!plan) return showFeedback(false, "Plan attendu.");
-      S.data.s4 = { plan, budget: isNaN(bud) ? 0 : bud };
+    const poles = ["Trésorerie", "Secrétariat Général", "Reste de l'équipe"];
+    const grid = document.getElementById("j3s4grid");
 
-      ajouterMemo("Plan avant décembre", plan);
-      ajouterMemo("Budget cohésion", `${S.data.s4.budget} €`);
+    if (!S.data.s4)
+      S.data.s4 = { budgets: { Treso: 0, SecG: 0, Reste: 0 }, total: 0 };
+
+    // Build inputs
+    const ids = ["treso", "secg", "reste"];
+    poles.forEach((p, k) => {
+      const row = document.createElement("div");
+      row.className = "option";
+      row.innerHTML = `
+        <div style="flex:1"><strong>${p}</strong></div>
+        <input id="j3s4-${ids[k]}" class="input" type="number" min="0" placeholder="€" style="max-width:160px">
+      `;
+      grid.appendChild(row);
+    });
+
+    function recalc() {
+      const a = parseFloat(document.getElementById("j3s4-treso").value || "0");
+      const b = parseFloat(document.getElementById("j3s4-secg").value || "0");
+      const c = parseFloat(document.getElementById("j3s4-reste").value || "0");
+      const total =
+        (isNaN(a) ? 0 : a) + (isNaN(b) ? 0 : b) + (isNaN(c) ? 0 : c);
+      document.getElementById("j3s4total").value = total;
+    }
+    ids.forEach((id) =>
+      document.getElementById(`j3s4-${id}`).addEventListener("input", recalc)
+    );
+
+    document.getElementById("ok4").onclick = () => {
+      const a = parseFloat(document.getElementById("j3s4-treso").value || "0");
+      const b = parseFloat(document.getElementById("j3s4-secg").value || "0");
+      const c = parseFloat(document.getElementById("j3s4-reste").value || "0");
+      const total =
+        (isNaN(a) ? 0 : a) + (isNaN(b) ? 0 : b) + (isNaN(c) ? 0 : c);
+
+      S.data.s4 = {
+        budgets: {
+          Treso: isNaN(a) ? 0 : a,
+          SecG: isNaN(b) ? 0 : b,
+          Reste: isNaN(c) ? 0 : c,
+        },
+        total,
+      };
+
+      // Mémo
+      ajouterMemo("Cohésion — Trésorerie", `${S.data.s4.budgets.Treso} €`);
+      ajouterMemo("Cohésion — Sec. Général", `${S.data.s4.budgets.SecG} €`);
+      ajouterMemo("Cohésion — Reste", `${S.data.s4.budgets.Reste} €`);
+      ajouterMemo("Cohésion — Total", `${S.data.s4.total} €`);
 
       logResult(index, true, JSON.stringify(S.data));
       applySuccess(index, m);
@@ -1129,7 +1057,7 @@ function renderJeu4(index) {
 
   body.innerHTML += header();
 
-  // 1) Partenaires actuels
+  // 1) Partenaires actuels (libre ; mémo)
   if (S.step === 1) {
     body.innerHTML += `
       <div class="card">
@@ -1148,13 +1076,13 @@ function renderJeu4(index) {
     return;
   }
 
-  // 2) Entreprise en période d’essai
+  // 2) Entreprise en période d’essai (libre ; mémo)
   if (S.step === 2) {
     body.innerHTML += `
       <div class="card">
         <h4>Étape 2 — Période d’essai</h4>
         <p><strong>Quelle entreprise est en période d’essai de 1 an pour un partenariat ?</strong></p>
-        <input id="j4s2" class="input" placeholder="Nom de l’entreprise (ex : PWC)">
+        <input id="j4s2" class="input" placeholder="Nom de l’entreprise">
         <div class="actions"><button class="btn" id="ok2">Suite</button></div>
       </div>`;
     document.getElementById("ok2").onclick = () => {
@@ -1167,37 +1095,39 @@ function renderJeu4(index) {
     return;
   }
 
-  // 3) QCM — Renouvellement + où trouver l’info
+  // 3) Deux questions libres (3.1 et 3.2) — mémo
   if (S.step === 3) {
-    const opts = [
-      "Janvier ; Dossier Stratégie et pilotage",
-      "Décembre ; SMQ",
-      "Tous les 3 ans ; RH",
-    ];
     body.innerHTML += `
       <div class="card">
-        <h4>Étape 3 — Renouvellement des conventions</h4>
-        <p><strong>Quand renouveler et où trouver l’info ?</strong></p>
-        ${opts
-          .map(
-            (o, i) => `
-          <label class="option"><input type="radio" name="j4s3" value="${i}"><span>${o}</span></label>
-        `
-          )
-          .join("")}
+        <h4>Étape 3 — Conventions</h4>
+        <label class="option" style="align-items:flex-start">
+          <div style="flex:1"><strong>3.1 — Quand faut‑il refaire les conventions de partenariats ?</strong></div>
+        </label>
+        <textarea id="j4s3q1" class="textarea" placeholder="Indiquez la périodicité / le moment…"></textarea>
+
+        <label class="option" style="align-items:flex-start">
+          <div style="flex:1"><strong>3.2 — Où trouver l’information ?</strong></div>
+        </label>
+        <textarea id="j4s3q2" class="textarea" placeholder="Ex : dossier, outil, référent, etc."></textarea>
+
         <div class="actions"><button class="btn" id="ok3">Suite</button></div>
       </div>`;
     document.getElementById("ok3").onclick = () => {
-      const v = document.querySelector('input[name="j4s3"]:checked');
-      if (!v) return showFeedback(false, "Choisis une option.");
-      S.data.s3 = parseInt(v.value, 10);
-      ajouterMemo("Renouvellement / Où est l’info", opts[S.data.s3]);
+      const q1 = document.getElementById("j4s3q1").value.trim();
+      const q2 = document.getElementById("j4s3q2").value.trim();
+      if (!q1 || !q2)
+        return showFeedback(false, "Merci de répondre aux 2 questions.");
+      S.data.s3 = { when: q1, where: q2 };
+
+      ajouterMemo("Conventions — Quand refaire ?", q1);
+      ajouterMemo("Conventions — Où trouver l’information ?", q2);
+
       next();
     };
     return;
   }
 
-  // 4) Types d’entreprises à prospecter (libre)
+  // 4) Types d’entreprises à prospecter (libre ; mémo)
   if (S.step === 4) {
     body.innerHTML += `
       <div class="card">
@@ -1216,7 +1146,7 @@ function renderJeu4(index) {
     return;
   }
 
-  // 5) Type d’entreprise visée + exemple (libre)
+  // 5) Type d’entreprise visée + exemple (libre ; mémo)
   if (S.step === 5) {
     body.innerHTML += `
       <div class="card">
@@ -1235,7 +1165,7 @@ function renderJeu4(index) {
     return;
   }
 
-  // 6) Budget annuel partenaires + arguments par pôle (table)
+  // 6) Budget annuel partenaires + arguments par pôle (table) — mémo
   if (S.step === 6) {
     const poles = [
       "Trésorerie",
@@ -1287,7 +1217,7 @@ function renderJeu4(index) {
     return;
   }
 
-  // 7) Budget “séduction” + idées d’actions (libre) — Validation finale
+  // 7) Budget “séduction” + idées d’actions (libre) — Validation finale (mémo)
   if (S.step === 7) {
     body.innerHTML += `
       <div class="card">
