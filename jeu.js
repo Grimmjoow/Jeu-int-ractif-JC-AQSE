@@ -404,7 +404,7 @@ function renderBrainstorm(index) {
           <h4>Instructions</h4>
           <ul class="muted">
             <li>Ajoute un maximum d’idées (Entrée pour valider chacune).</li>
-            <li>Sélectionne ensuite <strong>5 idées</strong> (cliquer pour sélectionner/désélectionner).</li>
+            <li>Sélectionne ensuite <strong>5 de tes idées</strong> (cliquer pour sélectionner/désélectionner).</li>
           </ul>
         </div>
       </div>
@@ -1018,7 +1018,7 @@ function renderJeu3(index) {
     body.innerHTML += `
       <div class="card">
         <h4>Étape 4 — Budget alloué pour la cohésion</h4>
-        <p class="muted">Saisissez le budget par pôle. Le récapitulatif s’affiche juste en dessous, avec le total.</p>
+        <p class="muted">Saisissez le budget par pôle.</p>
         <div id="j3s4grid" class="memo-body"></div>
         <div id="j3s4recap" class="memo-body" style="margin-top:8px"></div>
         <div class="actions"><button class="btn" id="ok4">Valider le Jeu 3</button></div>
